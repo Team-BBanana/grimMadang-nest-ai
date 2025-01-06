@@ -28,6 +28,24 @@
    - 점수 산정 및 피드백 제공
    - 재도전 기회 제공
 
+## 프로젝트 설정
+
+1. 의존성 설치
+```bash
+npm install
+```
+
+2. 환경 변수 설정
+- `.env.example` 파일을 복사하여 `.env` 파일 생성
+- 필요한 환경 변수 값 설정:
+  ```
+  # Server Configuration
+  PORT=3000
+
+  # OpenAI Configuration
+  OPENAI_API_KEY=your_openai_api_key_here
+  ```
+
 ## API 엔드포인트
 
 | 기능 | 엔드포인트 | 설명 |
@@ -41,20 +59,22 @@
 
 ```
 src/
-├── conversation/         # 대화 관련 모듈
-│   ├── dto/             # 데이터 전송 객체
+├── config/             # 설정 관련 모듈
+│   └── openai.config.ts
+├── openai/            # OpenAI 관련 모듈
+│   ├── openai.module.ts
+│   └── openai.service.ts
+├── conversation/      # 대화 관련 모듈
+│   ├── dto/          # 데이터 전송 객체
 │   ├── conversation.controller.ts
 │   ├── conversation.service.ts
 │   └── conversation.module.ts
-└── app.module.ts        # 루트 모듈
+└── app.module.ts     # 루트 모듈
 ```
 
-## 설치 및 실행
+## 실행 방법
 
 ```bash
-# 패키지 설치
-npm install
-
 # 개발 모드로 실행
 npm run start:dev
 
@@ -62,10 +82,22 @@ npm run start:dev
 npm run start:prod
 ```
 
-## 환경 변수
+## 최근 업데이트 내용
 
-- `PORT`: 서버 포트 (기본값: 3000)
-- `OPENAI_API_KEY`: OpenAI API 키
+1. OpenAI 서비스 구현
+   - STT (Speech-to-Text) 기능
+   - 텍스트 생성 기능
+   - TTS (Text-to-Speech) 기능
+
+2. 환경 설정 구성
+   - ConfigModule 설정
+   - 환경 변수 관리 (.env)
+   - OpenAI API 키 설정
+
+3. 대화 모듈 구현
+   - 웰컴 플로우 API
+   - 출석 정보 기반 대화
+   - 음성 변환 및 처리
 
 ## 데이터 흐름
 
