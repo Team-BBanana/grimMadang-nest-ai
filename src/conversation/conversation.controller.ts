@@ -15,13 +15,10 @@ export class ConversationController {
 
   // 🚀 '/welcomeFlow' POST 요청을 처리하는 엔드포인트
   @Post('welcomeFlow')
-  async handleWelcomeFlow( @Body() welcomeFlowDto: WelcomeFlowRequestDto ): Promise<WelcomeFlowResponseDto> {
-    // 👋 사용자의 첫 방문인 경우 출석 체크와 함께 환영 메시지 처리
-    if (welcomeFlowDto.userRequestWavWelcome === 'first') {
-      return this.conversationService.processFirstWelcomeWithAttendance(welcomeFlowDto);
-    }
-    
-    // 💬 일반적인 대화 요청 처리
+  async handleWelcomeFlow(
+    @Body() welcomeFlowDto: WelcomeFlowRequestDto
+  ): Promise<WelcomeFlowResponseDto> {
+    // 💬 모든 대화 요청을 단일 메서드로 처리
     return this.conversationService.processWelcomeFlow(welcomeFlowDto);
   }
 }
