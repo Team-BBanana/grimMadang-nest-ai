@@ -5,9 +5,11 @@
 
 ## 🛠 기술 스택
 - NestJS (Node.js 프레임워크)
-- TypeScript (ES2021)
+- TypeScript 5.x
+  - Target: ES2018 (ES9) - LTS
+  - Module: CommonJS
 - MongoDB
-- OpenAI API (GPT-4, Whisper, TTS)
+- OpenAI API (GPT-3.5-turbo, Whisper, TTS)
 - Swagger (API 문서화)
 
 ## 🚀 주요 기능
