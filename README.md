@@ -18,14 +18,51 @@
    - 자연어 처리 및 응답 생성
    - 텍스트-음성 변환 (TTS)
    - 대화 이력 저장 및 관리
+   - 개인화된 대화 (사용자 이름 활용)
 
-2. 출석 데이터 활용
-   - 총 출석일수 및 연속 출석일수 기반 맞춤형 응답
-   - 첫 방문 사용자 구분 및 특별 환영 메시지
+2. 사용자 데이터 관리
+   - 기본 정보 (이름, 세션ID)
+   - 출석 데이터 (총 출석일수, 연속 출석일수)
+   - 관심사 및 선호도 추적
+   - 개인 상태 정보 저장
 
-3. 그림 그리기 의향 분석
-   - AI 기반 사용자 의도 파악
-   - 맥락 기반 자연스러운 대화 유도
+3. 대화 분석 및 정보 추출
+   - 사용자 관심사 자동 추출
+   - 그림 관련 선호도 파악
+     - 난이도 선호도
+     - 스타일 선호도
+     - 선호 주제/색상
+   - 개인 상태 정보 수집
+     - 감정 상태
+     - 신체 상태
+     - 그림 그리기 경험
+
+## 💾 데이터 구조
+### Conversation 스키마
+```typescript
+{
+  sessionId: string;       // 세션 식별자
+  name: string;           // 사용자 이름
+  userText: string;       // 사용자 입력
+  aiResponse: string;     // AI 응답
+  isFirstVisit: boolean;  // 첫 방문 여부
+  attendanceTotal?: string;    // 총 출석일
+  attendanceStreak?: string;   // 연속 출석일
+  conversationOrder: number;   // 대화 순서
+  interests: string[];         // 관심사 목록
+  preferences: {              // 선호도 정보
+    difficulty?: string;      // 선호 난이도
+    style?: string;          // 선호 스타일
+    subjects?: string[];     // 선호 주제
+    colors?: string[];       // 선호 색상
+  };
+  personalInfo: {            // 개인 상태 정보
+    mood?: string;          // 감정 상태
+    physicalCondition?: string;  // 신체 상태
+    experience?: string;    // 그림 경험
+  };
+}
+```
 
 ## 💻 개발 환경 설정
 1. 필수 요구사항
@@ -58,27 +95,27 @@
 
 ### 주요 엔드포인트
 1. 웰컴 플로우 (`POST /api/conversation/welcomeFlow`)
-   - 사용자 세션 관리
-   - 음성/텍스트 기반 대화 처리
-   - 출석 데이터 기반 맞춤형 응답
+   ```typescript
+   // 요청 본문
+   {
+     sessionId: string;          // 세션 ID
+     name: string;              // 사용자 이름
+     userRequestWavWelcome: string | 'first';  // 음성 데이터 또는 'first'
+     attendanceTotal: string;    // 총 출석일
+     attendanceStreak: string;   // 연속 출석일
+   }
 
-## 🗃 프로젝트 구조
-```
-src/
-├── conversation/           # 대화 관리 모듈
-│   ├── dto/               # 데이터 전송 객체
-│   ├── schemas/           # MongoDB 스키마
-│   ├── conversation.controller.ts
-│   ├── conversation.service.ts
-│   └── conversation.module.ts
-├── openai/                # OpenAI 통합 모듈
-│   ├── openai.config.ts
-│   ├── openai.service.ts
-│   └── openai.module.ts
-└── common/                # 공통 유틸리티
-    ├── interceptors/      # 응답 변환 인터셉터
-    └── interfaces/        # 공통 인터페이스
-```
+   // 응답 본문
+   {
+     statusCode: number;        // HTTP 상태 코드
+     message: string;          // 응답 메시지
+     data: {
+       aiResponseWayWelcome: string;  // 음성 응답 (base64)
+       choice: boolean;              // 그림 그리기 의향
+     }
+     timestamp: string;        // 응답 시간
+   }
+   ```
 
 ## 🔄 응답 형식
 모든 API 응답은 다음 형식을 따릅니다:
