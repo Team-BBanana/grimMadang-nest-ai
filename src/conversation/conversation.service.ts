@@ -247,6 +247,7 @@ export class ConversationService {
       this.logger.debug('AI Response:', aiResponse);
 
       // 🔊 사용자 정보 추출
+      // 이부분 프롬프트에 따른 개선 필요함. 너무 임시적으로 막 만듬.
       const infoMatch = aiResponse.match(/\[INFO:({.*?})\]/);
       let userInfo: {
         interests?: string[];

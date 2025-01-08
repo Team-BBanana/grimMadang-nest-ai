@@ -12,7 +12,7 @@ import { ApiOperation, ApiResponse as SwaggerResponse } from '@nestjs/swagger';
 @Controller('api/conversation')
 @UseInterceptors(TransformInterceptor)
 export class ConversationController {
-  private readonly logger = new Logger(ConversationController.name);
+  private readonly logger = new Logger("대화 컨트롤러");
 
   // 🔨 의존성 주입을 통해 ConversationService 인스턴스 주입
   constructor(
@@ -20,7 +20,7 @@ export class ConversationController {
   ) { }
 
   // 🚀 '/welcomeFlow' POST 요청을 처리하는 엔드포인트
-  @Post('welcomeFlow')
+  @Post('/welcomeFlow')
   @ApiOperation({ summary: '웰컴 플로우 대화 처리' })
   @SwaggerResponse({
     status: HttpStatus.OK,
