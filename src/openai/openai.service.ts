@@ -3,6 +3,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OpenAIConfig } from '../config/openai.config';
 import OpenAI from 'openai';
 import { File } from '@web-std/file';
+import * as zlib from 'zlib';
+import { promisify } from 'util';
+
+// gzip 압축/해제 함수를 프로미스로 변환
+const gzipAsync = promisify(zlib.gzip);
+const gunzipAsync = promisify(zlib.gunzip);
 
 // 🔌 OpenAI 서비스 클래스 - OpenAI API와의 모든 상호작용을 관리
 @Injectable()
@@ -14,6 +20,17 @@ export class OpenAIService {
   // ⚡ OpenAIConfig를 주입받아 OpenAI 인스턴스 초기화
   constructor(private readonly openaiConfig: OpenAIConfig) {
     this.openai = this.openaiConfig.getOpenAI();
+  }
+
+  // 🎤️ 데이터 압축 유틸리티 함수
+  private async compressBuffer(buffer: Buffer): Promise<Buffer> {
+    try {
+      // GZIP 압축 수행
+      return await gzipAsync(buffer);
+    } catch (error) {
+      this.logger.error(`Error in compressBuffer: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // 🎤 음성을 텍스트로 변환하는 함수 (Speech-to-Text)
@@ -56,23 +73,50 @@ export class OpenAIService {
   }
 
   // 🔊 텍스트를 음성으로 변환하는 함수 (Text-to-Speech)
-  async textToSpeech(text: string): Promise<Buffer> {
+  async textToSpeech(text: string): Promise<Buffer> { // 반환 타입을 Buffer로 변경
     try {
       this.logger.debug('Converting text to speech:', text);
-      // TTS-1 모델과 Nova 음성을 사용하여 텍스트를 WAV 형식 음성으로 변환
+      // TTS-1 모델과 Nova 음성을 사용하여 텍스트를 MP3 형식 음성으로 변환
       const audioResponse = await this.openai.audio.speech.create({
         model: 'tts-1',
         voice: 'nova',
         input: text,
-        response_format: 'wav' // 🎵 WAV 형식으로 출력 지정
+        response_format: 'mp3', // 🎵 MP3 형식으로 출력 변경 (더 작은 파일 크기)
+        speed: 1.0 // 음성 속도 조절 (1.0이 기본)
       });
 
-      // 🔄 응답을 Buffer로 변환
+      // 🔄 응답을 Buffer로 변환하고 압축
       const buffer = Buffer.from(await audioResponse.arrayBuffer());
-      this.logger.debug('Text to speech conversion completed (WAV format)');
-      return buffer;
+      const compressedBuffer = await this.compressBuffer(buffer);
+      
+      this.logger.debug('Text to speech conversion and compression completed');
+      return compressedBuffer; // 압축된 버퍼 반환
     } catch (error) {
       this.logger.error(`Error in textToSpeech: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // 🎨 이미지 생성 함수 - DALL-E 모델을 사용하여 이미지 생성
+  async generateImage(prompt: string): Promise<string> {
+    try {
+      this.logger.debug('Generating image with prompt:', prompt);
+      
+      const response = await this.openai.images.generate({
+        model: "dall-e-3",
+        prompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        style: "natural"
+      });
+
+      const imageUrl = response.data[0].url;
+      this.logger.debug('Generated image URL:', imageUrl);
+      
+      return imageUrl;
+    } catch (error) {
+      this.logger.error(`Error in generateImage: ${error.message}`, error.stack);
       throw error;
     }
   }

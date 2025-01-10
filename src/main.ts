@@ -15,6 +15,12 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api-docs', app, document);
 
+  // CORS 설정
+  app.enableCors({
+    origin: 'http://localhost:5173', // 특정 도메인만 허용
+    credentials: true, // 자격 증명 허용
+  });
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
