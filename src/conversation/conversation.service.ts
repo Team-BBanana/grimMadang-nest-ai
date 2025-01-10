@@ -52,24 +52,24 @@ export class ConversationService {
 
   // 💾 대화 내용을 저장하는 private 메소드
   private async saveConversation(
-    sessionId: string,
-    name: string,
-    userText: string,
-    aiResponse: string,
-    isFirstVisit: boolean = false,
-    attendanceTotal?: string,
-    attendanceStreak?: string,
-    interests?: string[],
-    preferences?: {
-      difficulty?: string;
-      style?: string;
-      subjects?: string[];
-      colors?: string[];
+    sessionId: string, // 세션 ID
+    name: string, // 사용자 이름
+    userText: string, // 사용자가 입력한 텍스트
+    aiResponse: string, // AI의 응답 텍스트
+    isFirstVisit: boolean = false, // 첫 방문 여부
+    attendanceTotal?: string, // 총 출석일
+    attendanceStreak?: string, // 연속 출석일
+    interests?: string[], // 사용자의 관심사
+    preferences?: { // 사용자의 선호도
+      difficulty?: string; // 난이도
+      style?: string; // 스타일
+      subjects?: string[]; // 주제
+      colors?: string[]; // 색상
     },
-    personalInfo?: {
-      mood?: string;
-      physicalCondition?: string;
-      experience?: string;
+    personalInfo?: { // 사용자의 개인정보
+      mood?: string; // 현재 기분
+      physicalCondition?: string; // 신체 상태
+      experience?: string; // 그림 그리기 경험
     },
   ): Promise<void> { 
     this.logger.debug(`Saving conversation for session: ${sessionId}, name: ${name}`);
@@ -109,6 +109,7 @@ export class ConversationService {
 
 
   // 👋 첫 방문자 환영 메시지 처리 메소드
+  // 메인 메소드1 
   async processFirstWelcomeWithAttendance(welcomeFlowDto: WelcomeFlowRequestDto): Promise<WelcomeFlowResponseDto> {
     // 📝 로그 출력
     this.logger.log(`Processing first welcome with attendance for session: ${welcomeFlowDto.sessionId}`);
@@ -185,6 +186,7 @@ export class ConversationService {
 
 
   // 🌟 일반 대화 처리 메소드
+  // 메인 메소드2
   async processWelcomeFlow(
     welcomeFlowDto: WelcomeFlowRequestDto,
   ): Promise<WelcomeFlowResponseDto> {
@@ -250,17 +252,17 @@ export class ConversationService {
       // 이부분 프롬프트에 따른 개선 필요함. 너무 임시적으로 막 만듬.
       const infoMatch = aiResponse.match(/\[INFO:({.*?})\]/);
       let userInfo: {
-        interests?: string[];
-        preferences?: {
-          difficulty?: string;
-          style?: string;
-          subjects?: string[];
-          colors?: string[];
+        interests?: string[]; // 사용자의 관심사
+        preferences?: { // 사용자의 선호도
+          difficulty?: string; // 난이도
+          style?: string; // 스타일
+          subjects?: string[]; // 주제
+          colors?: string[]; // 색상
         };
-        personalInfo?: {
-          mood?: string;
-          physicalCondition?: string;
-          experience?: string;
+        personalInfo?: { // 사용자의 개인정보
+          mood?: string; // 현재 기분
+          physicalCondition?: string; // 신체 상태
+          experience?: string; // 그림 그리기 경험
         };
       } = {};
       

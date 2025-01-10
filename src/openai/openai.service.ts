@@ -76,4 +76,28 @@ export class OpenAIService {
       throw error;
     }
   }
+
+  // 🎨 이미지 생성 함수 - DALL-E 모델을 사용하여 이미지 생성
+  async generateImage(prompt: string): Promise<string> {
+    try {
+      this.logger.debug('Generating image with prompt:', prompt);
+      
+      const response = await this.openai.images.generate({
+        model: "dall-e-3",
+        prompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        style: "natural"
+      });
+
+      const imageUrl = response.data[0].url;
+      this.logger.debug('Generated image URL:', imageUrl);
+      
+      return imageUrl;
+    } catch (error) {
+      this.logger.error(`Error in generateImage: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
 }
