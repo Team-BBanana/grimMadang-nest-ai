@@ -18,7 +18,7 @@ export class WelcomeFlowRequestDto {
       description: '사용자의 음성 데이터 (첫 대화시: "first", 이후: WAV 바이너리)',
       example: 'first'
     })
-    userRequestWavWelcome: string | 'first';
+    userRequestWelcomeWav: string | 'first';
     
     @ApiProperty({
       description: '사용자의 총 출석 일수',

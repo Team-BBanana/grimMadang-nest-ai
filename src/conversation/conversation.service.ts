@@ -193,7 +193,7 @@ export class ConversationService {
     this.logger.log(`Processing welcome flow for session: ${welcomeFlowDto.sessionId}`);
 
     // 👋 첫 방문자 처리
-    if (welcomeFlowDto.userRequestWavWelcome === 'first') {
+    if (welcomeFlowDto.userRequestWelcomeWav === 'first') {
       this.logger.debug('Processing first visit');
       return this.processFirstWelcomeWithAttendance(welcomeFlowDto);
     }
@@ -202,14 +202,14 @@ export class ConversationService {
       let userText: string;
 
       // 🎤 음성 데이터 처리
-      if (welcomeFlowDto.userRequestWavWelcome.startsWith('data:audio') ||
-        /^[A-Za-z0-9+/=]+$/.test(welcomeFlowDto.userRequestWavWelcome)) {
+      if (welcomeFlowDto.userRequestWelcomeWav.startsWith('data:audio') ||
+        /^[A-Za-z0-9+/=]+$/.test(welcomeFlowDto.userRequestWelcomeWav)) {
         userText = await this.openaiService.speechToText(
-          Buffer.from(welcomeFlowDto.userRequestWavWelcome, 'base64')
+          Buffer.from(welcomeFlowDto.userRequestWelcomeWav, 'base64')
         );
         this.logger.debug('Converted speech to text:', userText);
       } else {
-        userText = welcomeFlowDto.userRequestWavWelcome;
+        userText = welcomeFlowDto.userRequestWelcomeWav;
         this.logger.debug('Using direct text input:', userText);
       }
 

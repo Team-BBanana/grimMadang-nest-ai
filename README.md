@@ -176,7 +176,7 @@
    {
      sessionId: string;          // 세션 ID
      name: string;              // 사용자 이름
-     userRequestWavWelcome: string | 'first';  // 음성 데이터 또는 'first'
+     userRequestWelcomeWav: string | 'first';  // 음성 데이터 또는 'first'
      attendanceTotal: string;    // 총 출석일
      attendanceStreak: string;   // 연속 출석일
    }
