@@ -36,14 +36,11 @@ export class WelcomeFlowRequestDto {
 // 🤖 AI가 생성한 응답을 전달하기 위한 웰컴 플로우 응답 DTO
 export class WelcomeFlowResponseDto {
     @ApiProperty({
-    //   description: 'AI가 생성한 음성 응답 데이터 (WAV 바이너리)',
-      description: 'AI가 생성한 음성 응답 데이터 (WAV 바이너리를 base64로 인코딩)',
+      description: 'AI가 생성한 음성 응답 데이터 (압축된 MP3 바이너리)',
       type: 'string',
-    //   format: 'binary'
-      format: 'base64'
+      format: 'binary'
     })
-    // aiResponseWelcomeWav: Buffer;
-    aiResponseWelcomeWav: string;
+    aiResponseWelcomeWav: Buffer;
     
     @ApiProperty({
       description: '그림 그리기 활동 선호도 표시',

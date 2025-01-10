@@ -22,15 +22,13 @@ export class OpenAIService {
     this.openai = this.openaiConfig.getOpenAI();
   }
 
-  // 🎤️ 데이터 압축 및 인코딩 유틸리티 함수
-  private async compressAndEncode(buffer: Buffer): Promise<string> {
+  // 🎤️ 데이터 압축 유틸리티 함수
+  private async compressBuffer(buffer: Buffer): Promise<Buffer> {
     try {
       // GZIP 압축 수행
-      const compressed = await gzipAsync(buffer);
-      // Base64 인코딩
-      return compressed.toString('base64');
+      return await gzipAsync(buffer);
     } catch (error) {
-      this.logger.error(`Error in compressAndEncode: ${error.message}`, error.stack);
+      this.logger.error(`Error in compressBuffer: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -75,7 +73,7 @@ export class OpenAIService {
   }
 
   // 🔊 텍스트를 음성으로 변환하는 함수 (Text-to-Speech)
-  async textToSpeech(text: string): Promise<string> { // 반환 타입을 string으로 변경
+  async textToSpeech(text: string): Promise<Buffer> { // 반환 타입을 Buffer로 변경
     try {
       this.logger.debug('Converting text to speech:', text);
       // TTS-1 모델과 Nova 음성을 사용하여 텍스트를 MP3 형식 음성으로 변환
@@ -89,10 +87,10 @@ export class OpenAIService {
 
       // 🔄 응답을 Buffer로 변환하고 압축
       const buffer = Buffer.from(await audioResponse.arrayBuffer());
-      const compressedBase64 = await this.compressAndEncode(buffer);
+      const compressedBuffer = await this.compressBuffer(buffer);
       
       this.logger.debug('Text to speech conversion and compression completed');
-      return compressedBase64; // 압축된 base64 문자열 반환
+      return compressedBuffer; // 압축된 버퍼 반환
     } catch (error) {
       this.logger.error(`Error in textToSpeech: ${error.message}`, error.stack);
       throw error;

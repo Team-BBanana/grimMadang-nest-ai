@@ -79,10 +79,11 @@ export class ExploreTopicsResponseDto {
   select: string;
 
   @ApiProperty({
-    description: 'AI 음성 응답 데이터 (base64로 인코딩된 WAV)',
-    format: 'base64'
+    description: 'AI 음성 응답 데이터 (압축된 MP3 바이너리)',
+    type: 'string',
+    format: 'binary'
   })
-  aiResponseExploreWav: string;
+  aiResponseExploreWav: Buffer;
 
   @ApiProperty({
     description: '선택된 주제에 대한 메타데이터 (이미지 URL, 설명 등)',
