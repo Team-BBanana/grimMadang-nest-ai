@@ -6,6 +6,7 @@ import { ExploreTopicsRequestDto, ExploreTopicsResponseDto, TopicImageDescriptio
 import { OpenAIService } from '../openai/openai.service';
 import { ConversationDocument } from '../conversation/schemas/conversation.schema';
 import fetch from 'node-fetch';
+import { S3Service } from '../aws/s3.service';
 
 // Spring API 응답 타입 정의
 interface SpringMetadataResponse {
@@ -27,7 +28,8 @@ export class TopicsService {
   constructor(
     @InjectModel(Topic.name) private topicModel: Model<TopicDocument>,
     @InjectModel('Conversation') private conversationModel: Model<ConversationDocument>,
-    private readonly openAIService: OpenAIService
+    private readonly openAIService: OpenAIService,
+    private readonly s3Service: S3Service
   ) {}
 
   /** 🔍 ConversationDocument 테이블을 조회, 최근 10개의 row 가져옴
@@ -155,11 +157,15 @@ export class TopicsService {
       - 그림자나 질감 표현은 최소화
     `;
 
-    const imageUrl = await this.openAIService.generateImage(imagePrompt);
+    const dallEImageUrl = await this.openAIService.generateImage(imagePrompt);
+
+    // 3. 이미지를 S3에 업로드
+    const key = `topics/${topic}/${Date.now()}.png`;
+    const s3ImageUrl = await this.s3Service.uploadImageFromUrl(dallEImageUrl, key);
 
     return {
       guidelines,
-      imageUrl
+      imageUrl: s3ImageUrl
     };
   }
 
@@ -500,75 +506,5 @@ export class TopicsService {
       select,  // 주제 선택 완료 여부
       aiResponseExploreWav: base64Audio  // 음성으로 변환된 AI 응답
     };
-  }
-
-  // 🎨 주제 이미지 및 설명 생성
-  /**
-   * 주제 이미지 및 설명을 Spring 서버에 저장
-   * @param topic - 선택된 주제
-   * @param imageUrl - 생성된 이미지 URL
-   * @param description - 생성된 가이드라인
-   * @returns 저장된 주제 정보
-   * @throws Error - Spring 서버 통신 실패 시
-   */
-  async makingTopicImageAndDescription(
-    topic: string,
-    imageUrl: string,
-    description: string
-  ): Promise<SpringMetadataResponse> {
-    try {
-      // 1. 기존 메타데이터 확인
-      const checkResponse = await fetch(`${process.env.SPRING_API_URL}/canvas/checkmetadata`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ topicName: topic })
-      });
-
-      // 2. 메타데이터가 있으면 그대로 반환
-      if (checkResponse.ok) {
-        const existingData = await checkResponse.json() as SpringMetadataResponse;
-        this.logger.debug('Found existing metadata:', existingData);
-        return existingData;
-      }
-
-      // 3. 메타데이터가 없으면 (500 에러) 새로 생성하여 저장
-      if (checkResponse.status === 500) {
-        this.logger.debug('No existing metadata found, creating new one');
-        
-        const saveResponse = await fetch(`${process.env.SPRING_API_URL}/canvas/savemetadata`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            topicName: topic,
-            imageUrl: imageUrl,
-            description: description
-          })
-        });
-
-        if (!saveResponse.ok) {
-          throw new Error(`Failed to save metadata: ${saveResponse.status} - ${saveResponse.statusText}`);
-        }
-
-        const savedData = await saveResponse.json() as SpringMetadataResponse;
-        this.logger.debug('Successfully saved new metadata:', savedData);
-        return savedData;
-      }
-
-      // 4. 기타 에러 처리
-      throw new Error(`Unexpected response from server: ${checkResponse.status} - ${checkResponse.statusText}`);
-    } catch (error) {
-      this.logger.error(`Error in makingTopicImageAndDescription: ${error.message}`, error.stack);
-      
-      // 기본 응답 반환 (에러 발생 시)
-      return {
-        topicName: topic,
-        imageUrl: imageUrl,
-        description: description
-      };
-    }
   }
 } 
