@@ -173,8 +173,7 @@ export class ConversationService {
 
       // ✅ 결과 반환
       return {
-        // aiResponseWelcomeWav: aiResponseWav, // 이걸로 해야함.
-        aiResponseWelcomeWav: aiResponseWav.toString('base64'), // 디버깅용
+        aiResponseWelcomeWav: aiResponseWav, // 이미 압축된 base64 문자열
         choice: false,
       };
     } catch (error) {
@@ -304,8 +303,7 @@ export class ConversationService {
 
       // ✅ 결과 반환
       return {
-        // aiResponseWelcomeWav: aiResponseWav, // 이걸로 해야함.
-        aiResponseWelcomeWav: aiResponseWav.toString('base64'), // 디버깅용
+        aiResponseWelcomeWav: aiResponseWav, // 이미 압축된 base64 문자열
         choice: wantsToDraw,
       };
     } catch (error) {
