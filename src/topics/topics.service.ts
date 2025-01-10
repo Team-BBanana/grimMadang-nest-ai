@@ -163,6 +163,92 @@ export class TopicsService {
     };
   }
 
+  /**
+   * 주제에 대한 메타데이터 조회
+   * @param topic - 조회할 주제 이름
+   * @returns 메타데이터 또는 null (데이터가 없는 경우)
+   */
+  private async checkTopicMetadata(topic: string): Promise<SpringMetadataResponse | null> {
+    try {
+      const response = await fetch(`${process.env.SPRING_API_URL}/canvas/checkmetadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ topicName: topic })
+      });
+
+      if (response.ok) {
+        const metadata = await response.json() as SpringMetadataResponse;
+        this.logger.debug('Found existing metadata:', metadata);
+        return metadata;
+      }
+
+      if (response.status === 500) {
+        this.logger.debug('No metadata found for topic:', topic);
+        return null;
+      }
+
+      throw new Error(`Unexpected response: ${response.status} - ${response.statusText}`);
+    } catch (error) {
+      this.logger.error(`Error checking metadata: ${error.message}`, error.stack);
+      return null;
+    }
+  }
+
+  /**
+   * 주제 메타데이터 저장
+   * @param metadata - 저장할 메타데이터
+   * @returns 저장된 메타데이터 또는 null (저장 실패 시)
+   */
+  private async saveTopicMetadata(metadata: SpringMetadataResponse): Promise<SpringMetadataResponse | null> {
+    try {
+      const response = await fetch(`${process.env.SPRING_API_URL}/canvas/savemetadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(metadata)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save metadata: ${response.status} - ${response.statusText}`);
+      }
+
+      const savedData = await response.json() as SpringMetadataResponse;
+      this.logger.debug('Successfully saved metadata:', savedData);
+      return savedData;
+    } catch (error) {
+      this.logger.error(`Error saving metadata: ${error.message}`, error.stack);
+      return null;
+    }
+  }
+
+  /**
+   * 주제 메타데이터 처리 (조회 또는 생성)
+   * @param topic - 처리할 주제 이름
+   * @returns 메타데이터 또는 null (처리 실패 시)
+   */
+  private async handleTopicMetadata(topic: string): Promise<SpringMetadataResponse | null> {
+    // 1. 기존 메타데이터 조회
+    const existingMetadata = await this.checkTopicMetadata(topic);
+    if (existingMetadata) {
+      return existingMetadata;
+    }
+
+    // 2. 메타데이터가 없는 경우, 새로 생성
+    const { guidelines, imageUrl } = await this.generateDrawingGuidelines(topic);
+    
+    // 3. 생성된 메타데이터 저장
+    const newMetadata = {
+      topicName: topic,
+      imageUrl: imageUrl,
+      description: guidelines
+    };
+
+    return await this.saveTopicMetadata(newMetadata);
+  }
+
   // 🎨 AI 응답 생성
   /**
    * AI 응답을 생성하는 메서드
@@ -213,6 +299,31 @@ export class TopicsService {
     }
 
     return this.openAIService.generateText(prompt);
+  }
+
+  // 사용자가 특정 주제를 선택한 경우의 처리 로직
+  private async handleTopicSelection(
+    selectedTopic: string,
+    name: string,
+    isTimedOut: string
+  ): Promise<ExploreTopicsResponseDto> {
+    // 1. 메타데이터 처리
+    const metadata = await this.handleTopicMetadata(selectedTopic);
+
+    // 2. 선택 확인 메시지 생성
+    const aiResponse = `${selectedTopic}가 맞나요?`;
+
+    // 3. 음성 변환
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const base64Audio = audioBuffer.toString('base64');
+
+    // 4. 응답 반환
+    return {
+      topics: selectedTopic,
+      select: 'false',
+      aiResponseExploreWav: base64Audio,
+      metadata: metadata || undefined
+    };
   }
 
   /**
@@ -314,15 +425,9 @@ export class TopicsService {
       
       // 사용자가 특정 주제를 선택한 경우 (확정은 아직)
       if (analysis.selectedTopic && !analysis.confirmedTopic) {
-        selectedTopics = analysis.selectedTopic;
-        const { guidelines, imageUrl } = await this.generateDrawingGuidelines(selectedTopics as string);
-        
-        // 이미지 URL을 Spring 서버에 저장
-        await this.makingTopicImageAndDescription(selectedTopics as string, imageUrl, guidelines);
-        
-        // 선택 확인 메시지
-        aiResponse = `${selectedTopics}가 맞나요?`;
-        
+        // 선택한 주제 확인 단계
+        return await this.handleTopicSelection(analysis.selectedTopic, dto.name, dto.isTimedOut);
+
       } else if (analysis.confirmedTopic) {
         // 사용자가 주제를 확정한 경우
         selectedTopics = previousTopics[0];  // 이전에 선택했던 주제
@@ -344,6 +449,7 @@ export class TopicsService {
         
         aiResponse = await this.openAIService.generateText(confirmationPrompt);
         
+      // 사용자가 다른 주제를 원하는 경우
       } else if (analysis.wantsDifferentGroup) {
         // 사용자의 관심사 분석
         const interests = await this.analyzeInterests(dto.sessionId);

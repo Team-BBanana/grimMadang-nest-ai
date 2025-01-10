@@ -1,6 +1,27 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsNumber } from 'class-validator';
 
+// 🎯 주제 이미지 및 설명 생성 응답 DTO
+export class TopicImageDescriptionResponseDto {
+  @ApiProperty({
+    description: '주제 이름',
+    example: '참외'
+  })
+  topicName: string;
+
+  @ApiProperty({
+    description: '주제 이미지 URL',
+    example: 'https://example.com/images/chamoe.jpg'
+  })
+  imageUrl: string;
+
+  @ApiProperty({
+    description: '주제 설명',
+    example: '참외는 곡선을 살리는 게 포인트예요.'
+  })
+  description: string;
+}
+
 // 🎯 주제 추천 요청 DTO
 export class ExploreTopicsRequestDto {
   @ApiProperty({
@@ -62,25 +83,11 @@ export class ExploreTopicsResponseDto {
     format: 'base64'
   })
   aiResponseExploreWav: string;
-}
-
-// 🎯 주제 이미지 및 설명 생성 응답 DTO
-export class TopicImageDescriptionResponseDto {
-  @ApiProperty({
-    description: '주제 이름',
-    example: '참외'
-  })
-  topicName: string;
 
   @ApiProperty({
-    description: '주제 이미지 URL',
-    example: 'https://example.com/images/chamoe.jpg'
+    description: '선택된 주제에 대한 메타데이터 (이미지 URL, 설명 등)',
+    required: false,
+    type: TopicImageDescriptionResponseDto
   })
-  imageUrl: string;
-
-  @ApiProperty({
-    description: '주제 설명',
-    example: '참외는 곡선을 살리는 게 포인트예요.'
-  })
-  description: string;
+  metadata?: TopicImageDescriptionResponseDto;
 } 
