@@ -38,6 +38,10 @@ export class TopicsService {
   // 🎨 주제 그룹 저장을 위한 private 변수
   private dynamicTopicGroups: Record<string, string[]> = {};
 
+  private readonly DEFAULT_GROUP = {
+    "쉬운 그림": ["사과", "바나나", "배"]
+  };
+
   // 🔧 서비스 생성자 - 필요한 모델과 서비스 주입
   constructor(
     // @InjectModel(Topic.name) private topicModel: Model<TopicDocument>,
@@ -162,29 +166,44 @@ export class TopicsService {
   ): Promise<ExploreTopicsResponseDto & { aiText: string }> {
     // 📝 사용자의 관심사 분석
     const interests = await this.analyzeInterests(dto.sessionId);
+    this.logger.debug('분석된 관심사:', interests);
+
     // 🎲 주제 그룹 생성
     this.dynamicTopicGroups = await this.generateTopicGroups(interests);
+    this.logger.debug('생성된 주제 그룹들:', this.dynamicTopicGroups);
+
     // 🎯 주제 그룹 선택
-    const group = await this.selectTopicGroupWithAI(interests);
-    // 📚 주제 선택
-    const selectedTopics = this.getTopicsFromGroup(group);
+    const selectedGroup = await this.selectTopicGroupWithAI(interests);
+    this.logger.debug('선택된 그룹:', selectedGroup);
+    
+    // 선택된 그룹의 주제들 가져오기
+    const selectedTopics = this.dynamicTopicGroups[selectedGroup] || this.generateFallbackTopics();
+    this.logger.debug('선택된 주제들:', {
+      group: selectedGroup,
+      topics: selectedTopics,
+      isDefault: !this.dynamicTopicGroups[selectedGroup]
+    });
+    
     // 📝 이전 추천 주제 저장
+    this.logger.log(`이전 추천 주제 저장:`, {
+      sessionId: dto.sessionId,
+      topics: selectedTopics
+    });
     this.previousTopicsMap.set(dto.sessionId, selectedTopics);
-    // 🎤 AI 응답 생성
-    const aiResponse = await this.generateAIResponse(
-      dto.name,
-      selectedTopics,
-      dto.isTimedOut,
-      true
-    );
-    // 🎤 AI 음성 응답 생성
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    // 📝 응답 반환 (텍스트 포함)
+    
+    // 🎤 선택된 주제를 음성 메시지로 변환
+    const aiText = `${dto.name}님, 오늘은 ${selectedTopics.join(', ')} 중에서 그리고 싶은 주제를 선택해주세요.`;
+    this.logger.log(aiText);
+    // TODO: TTS 임시 비활성화 (비용 절감)
+    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+
+    // 📝 응답 반환
     return {
       topics: selectedTopics,
       select: 'false',
       aiResponseExploreWav: audioBuffer,
-      aiText: aiResponse
+      aiText
     };
   }
 
@@ -198,13 +217,14 @@ export class TopicsService {
   ): Promise<ExploreTopicsResponseDto> {
     const metadata = await this.handleTopicMetadata(selectedTopic);
     const aiResponse = `${selectedTopic}가 맞나요?`;
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    const base64Audio = audioBuffer;
+    // TODO: TTS 임시 비활성화 (비용 절감)
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
       select: 'false',
-      aiResponseExploreWav: base64Audio,
+      aiResponseExploreWav: audioBuffer,
       metadata: metadata || undefined
     };
   }
@@ -363,6 +383,7 @@ export class TopicsService {
    * 🔍 사용자의 관심사 분석
    */
   private async analyzeInterests(sessionId: string): Promise<string[]> {
+    this.logger.log(`사용자 관심사 분석 시작`);
     const conversations = await this.conversationModel
       .find({ sessionId })
       .sort({ createdAt: -1 })
@@ -382,48 +403,121 @@ export class TopicsService {
   /**
    * 🎲 주제 그룹 생성
    */
-  private async generateTopicGroups(interests: string[]): Promise<Record<string, string[]>> {
-    const prompt = `
-      사용자의 관심사: ${interests.join(', ')}
+  private async generateTopicGroups(interests: string[]): Promise<Record<string, string[]>> { 
+    this.logger.log(`주제 그룹 생성 시작`);
+    const systemPrompt = `당신은 노인을 위한 그림 그리기 주제를 추천하는 AI 어시스턴트입니다.
+                          반드시 순수한 JSON 형식으로만 응답하세요.
+                          마크다운 코드 블록이나 다른 텍스트를 절대 포함하지 마세요.
 
-      위 관심사를 바탕으로 그림 그리기에 적합한 주제 그룹과 각 그룹별 주제를 생성해주세요.
-      각 그룹은 5-9개의 주제를 포함해야 합니다.
-      JSON 형식으로 응답해주세요:
-      {
-        "그룹명1": ["주제1", "주제2", ...],
-        "그룹명2": ["주제1", "주제2", ...],
-        ...
+                          응답 형식:
+                          {
+                            "그룹명1": ["주제1", "주제2", "주제3"],
+                            "그룹명2": ["주제1", "주제2", "주제3"]
+                          }
+
+                          중요한 규칙:
+                          1. 각 그룹은 정확히 3개의 주제를 포함해야 합니다.
+                          2. 그룹명과 주제는 매우 간단하고 명확해야 합니다.
+                          3. 그룹 예시: "과일", "동물", "필기도구", "가구", "채소" 등
+                          4. 주제 예시: 
+                            - 과일 그룹: "사과", "바나나", "배"
+                            - 동물 그룹: "강아지", "고양이", "토끼"
+                            - 필기도구 그룹: "연필", "볼펜", "지우개"
+                          5. 모든 단어는 한글로 작성하세요.
+                          6. 모든 따옴표는 큰따옴표(")를 사용하세요.
+                          7. 복잡하거나 추상적인 주제는 피하세요.
+                          8. 꽃, 나무 등의 상위 개념보다 명확하게 추천해주세요.
+                            8-1. 예시 : 꽃 이라면 "해바라기", "장미" 나무라면 "버드나무", "소나무" 등으로 작성하세요.
+
+                          주의: 응답에는 순수한 JSON만 포함되어야 합니다. 다른 텍스트나 마크다운은 절대 사용하지 마세요.`;
+
+    const userInput = interests.length > 0
+      ? `다음 관심사를 반영한 그림 그리기 주제 그룹을 생성해주세요: ${interests.join(', ')}`
+      : `노인분들이 쉽게 그릴 수 있는 간단한 주제 그룹을 생성해주세요.`;
+
+    try {
+      const response = await this.openAIService.generateText(systemPrompt, userInput);
+      
+      // JSON 형식 검증
+      try {
+        const parsedResponse = JSON.parse(response);
+        
+        // 응답 구조 검증
+        if (typeof parsedResponse !== 'object' || Array.isArray(parsedResponse)) {
+          throw new Error('응답이 객체 형식이 아닙니다');
+        }
+
+        // 각 그룹이 배열을 값으로 가지는지 검증
+        for (const [groupName, topics] of Object.entries(parsedResponse)) {
+          if (!Array.isArray(topics)) {
+            throw new Error(`${groupName} 그룹의 주제가 배열 형식이 아닙니다`);
+          }
+          if (topics.length < 3) {
+            throw new Error(`${groupName} 그룹의 주제가 3개 미만입니다`);
+          }
+        }
+
+        return parsedResponse;
+      } catch (parseError) {
+        this.logger.error('AI 응답 파싱 실패:', response);
+        this.logger.error('파싱 에러:', parseError);
+        return this.DEFAULT_GROUP;
       }
-    `;
-
-    const response = await this.openAIService.generateText(prompt);
-    return JSON.parse(response);
+    } catch (error) {
+      this.logger.error(`주제 그룹 생성 실패: ${error.message}`, error.stack);
+      return this.DEFAULT_GROUP;
+    }
   }
 
   /**
    * 🎯 주제 그룹 선택
    */
   private async selectTopicGroupWithAI(interests: string[], previousTopics: string[] = []): Promise<string> {
-    const prompt = `
-      사용자의 관심사: ${interests.join(', ')}
-      이전에 추천된 주제들: ${previousTopics.join(', ')}
+    this.logger.log(`주제 그룹 선택 시작`);
+    const availableGroups = Object.keys(this.dynamicTopicGroups);
+    
+    if (availableGroups.length === 0) {
+      this.logger.error('사용 가능한 그룹이 없습니다');
+      this.dynamicTopicGroups = this.DEFAULT_GROUP;
+      return Object.keys(this.DEFAULT_GROUP)[0];
+    }
 
-      위 정보를 바탕으로 사용자에게 가장 적합한 주제 그룹을 선택해주세요.
-      이전에 추천된 주제와는 다른 새로운 그룹을 선택하되, 사용자의 관심사와 연관성이 높아야 합니다.
-      그룹 이름만 응답해주세요.
+    const systemPrompt = `
+      당신은 노인을 위한 그림 그리기 주제 그룹을 선택하는 AI 어시스턴트입니다.
+      아래 주어진 그룹 중에서 하나만 선택해야 합니다:
+      ${availableGroups.join(', ')}
+
+      선택한 그룹 이름만 정확히 응답하세요. 다른 텍스트는 포함하지 마세요.
+      이전에 추천된 주제와는 다른 새로운 그룹을 선택하세요.
     `;
 
-    return await this.openAIService.generateText(prompt);
+    const userInput = interests.length > 0
+      ? `사용자의 관심사: ${interests.join(', ')}\n이전에 추천된 주제들: ${previousTopics.join(', ')}`
+      : `이전에 추천된 주제들: ${previousTopics.join(', ')}\n노인분들이 쉽게 그릴 수 있는 주제 그룹을 선택해주세요.`;
+
+    this.logger.log(`사용 가능한 그룹:`, availableGroups);
+    const selectedGroup = await this.openAIService.generateText(systemPrompt, userInput);
+    
+    // 선택된 그룹이 실제 존재하는지 확인
+    if (!this.dynamicTopicGroups[selectedGroup]) {
+      this.logger.error(`AI가 선택한 그룹 "${selectedGroup}"이 존재하지 않습니다`);
+      return availableGroups[0]; // 첫 번째 그룹 반환
+    }
+
+    return selectedGroup;
   }
 
   /**
    * 🎯 주제 선택
    */
   private getTopicsFromGroup(group: string, exclude: string[] = []): string[] {
+    this.logger.log(`주제 선택 시작`);
     const topics = (this.dynamicTopicGroups[group] || []).filter(topic => !exclude.includes(topic));
     if (topics.length === 0) {
+      this.logger.log(`기본 주제 생성`);
       return this.generateFallbackTopics();
     }
+    this.logger.log(`주제 선택 완료`);
     return topics.sort(() => 0.5 - Math.random()).slice(0, 3);
   }
 
@@ -431,8 +525,7 @@ export class TopicsService {
    * 🎨 기본 주제 생성
    */
   private generateFallbackTopics(): string[] {
-    const defaultTopics = ['사과', '바나나', '배'];
-    return defaultTopics.sort(() => 0.5 - Math.random()).slice(0, 3);
+    return this.DEFAULT_GROUP[Object.keys(this.DEFAULT_GROUP)[0]];
   }
 
   // 🎨 주제 메타데이터 관련 함수들

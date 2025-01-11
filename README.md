@@ -70,6 +70,39 @@
   - 응답 구조 일관성 유지
   - 에러 처리 강화
 
+### 6. AI 응답 개선 (2025.01.11)
+- **프롬프트 최적화**
+  - 순수 JSON 응답 강화
+  - 마크다운 사용 제한
+  - 명확한 응답 형식 지정
+
+- **에러 처리 강화**
+  - JSON 파싱 오류 처리
+  - 기본값 제공 로직
+  - 상세 로깅 추가
+
+- **성능 최적화**
+  - 불필요한 API 호출 제거
+  - TTS 임시 비활성화
+  - 응답 처리 간소화
+
+### 7. Node.js 경고 메시지 해결 (2025.01.11)
+```powershell
+# punycode 모듈 deprecation 경고 해결
+
+# 1. 외부 punycode 패키지 설치
+npm install punycode
+
+# 2. 경고 무시하고 실행
+node --no-deprecation your_script.js
+
+# 3. 경고 발생 위치 추적
+node --trace-deprecation your_script.js
+
+# 4. 의존성 업데이트
+npm update
+```
+
 ## 🚀 핵심 기능
 
 ### 1. 대화 관리 (ConversationService)

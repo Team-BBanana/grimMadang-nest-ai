@@ -54,13 +54,22 @@ export class OpenAIService {
   }
 
   // 💭 텍스트 생성 함수 - GPT 모델을 사용하여 대화형 텍스트 생성
-  async generateText(prompt: string): Promise<string> {
+  async generateText(prompt: string, userInput?: string): Promise<string> {
     try {
       this.logger.debug('Generating text with prompt:', prompt + '\n\n');
       // GPT-3.5-turbo 모델을 사용하여 텍스트 생성
+      const messages: { role: 'system' | 'user' | 'assistant', content: string }[] = [
+        { role: 'system', content: prompt }
+      ];
+      
+      // 사용자 입력이 있는 경우 추가
+      if (userInput) {
+        messages.push({ role: 'user', content: userInput });
+      }
+
       const completion = await this.openai.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: 'gpt-3.5-turbo',
+        messages,
+        model: 'gpt-4o',
       });
 
       const response = completion.choices[0].message.content;
