@@ -11,7 +11,7 @@ export class TopicsController {
   constructor(private readonly topicsService: TopicsService) {}
 
   // 🎨 주제 추천 API
-  @Post('explore')
+  @Post('/explore')
   @ApiOperation({ 
     summary: '주제 추천', 
     description: `

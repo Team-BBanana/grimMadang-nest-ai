@@ -120,4 +120,33 @@ export class OpenAIService {
       throw error;
     }
   }
+
+  /**
+   * 🖼️ 이미지 분석
+   */
+  async analyzeImage(imageUrl: string, prompt: string): Promise<string> {
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: { url: imageUrl }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500
+      });
+
+      return response.choices[0]?.message?.content || '';
+    } catch (error) {
+      this.logger.error(`Error analyzing image: ${error.message}`, error.stack);
+      throw new Error('이미지 분석 중 오류가 발생했습니다.');
+    }
+  }
 }
