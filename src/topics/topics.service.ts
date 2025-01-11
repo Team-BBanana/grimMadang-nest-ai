@@ -74,9 +74,13 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: '첫 방문',
-        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+        aiResponse: response.aiText
       });
-      return response;
+      return {
+        topics: response.topics,
+        select: response.select,
+        aiResponseExploreWav: response.aiResponseExploreWav
+      };
     }
 
     // 🔍 사용자의 응답 분석
@@ -89,7 +93,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+        aiResponse: response.aiResponseExploreWav
       });
       return response;
     }
@@ -101,7 +105,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+        aiResponse: response.aiResponseExploreWav
       });
       return response;
     }
@@ -113,7 +117,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+        aiResponse: response.aiResponseExploreWav
       });
       return response;
     }
@@ -124,7 +128,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+        aiResponse: response.aiResponseExploreWav
     });
     return response;
   }
@@ -136,26 +140,32 @@ export class TopicsService {
   private async handleFirstVisit(
     dto: ExploreTopicsRequestDto,
     previousTopics: string[]
-  ): Promise<ExploreTopicsResponseDto> {
+  ): Promise<ExploreTopicsResponseDto & { aiText: string }> {
+    // 📝 사용자의 관심사 분석
     const interests = await this.analyzeInterests(dto.sessionId);
+    // 🎲 주제 그룹 생성
     this.dynamicTopicGroups = await this.generateTopicGroups(interests);
+    // 🎯 주제 그룹 선택
     const group = await this.selectTopicGroupWithAI(interests);
+    // 📚 주제 선택
     const selectedTopics = this.getTopicsFromGroup(group);
-    
+    // 📝 이전 추천 주제 저장
     this.previousTopicsMap.set(dto.sessionId, selectedTopics);
-    
+    // 🎤 AI 응답 생성
     const aiResponse = await this.generateAIResponse(
       dto.name,
       selectedTopics,
       dto.isTimedOut,
       true
     );
-
+    // 🎤 AI 음성 응답 생성
     const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // 📝 응답 반환 (텍스트 포함)
     return {
       topics: selectedTopics,
       select: 'false',
-      aiResponseExploreWav: audioBuffer
+      aiResponseExploreWav: audioBuffer,
+      aiText: aiResponse
     };
   }
 

@@ -11,7 +11,12 @@ export class DrawingsController {
   constructor(private readonly drawingsService: DrawingsService) {}
 
   @Post('/submit')
-  @ApiOperation({ summary: '그림 제출 및 AI 평가' })
+  @ApiOperation({ 
+    summary: '그림 제출 및 AI 평가',
+    description: `
+    사용자가 그림을 제출하면 AI가 그림을 분석하여 점수를 산정하고 피드백을 제공합니다.
+    `
+  })
   @ApiResponse({
     status: 200,
     description: 'AI 평가 결과',
