@@ -4,14 +4,14 @@ import { ExploreTopicsRequestDto, ExploreTopicsResponseDto } from './dto/explore
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Topics')
-@Controller('/topics')
+@Controller('api/topics')
 export class TopicsController {
   private readonly logger = new Logger('주제 추천 컨트롤러');
 
   constructor(private readonly topicsService: TopicsService) {}
 
   // 🎨 주제 추천 API
-  @Post('explore')
+  @Post('/explore')
   @ApiOperation({ 
     summary: '주제 추천', 
     description: `

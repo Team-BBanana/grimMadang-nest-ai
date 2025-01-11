@@ -5,7 +5,7 @@ import { ConversationService } from './conversation.service';
 // 📝 웰컴 플로우 관련 DTO(Data Transfer Object) 타입 정의 import
 import { WelcomeFlowRequestDto, WelcomeFlowResponseDto } from './dto/welcome-flow.dto';
 import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
-import { ApiResponse } from '../common/interfaces/api-response.interface';
+// import { ApiResponse } from '../common/interfaces/api-response.interface';
 import { ApiOperation, ApiResponse as SwaggerResponse } from '@nestjs/swagger';
 
 // 🎯 '/api/conversation' 경로로 들어오는 요청을 처리하는 컨트롤러

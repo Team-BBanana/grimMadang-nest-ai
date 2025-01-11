@@ -4,7 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
 // 📝 스키마와 DTO 타입 임포트
-import { Topic, TopicDocument } from './schemas/topic.schema';
+// import { Topic, TopicDocument } from './schemas/topic.schema';
 import { ExploreTopicsRequestDto, ExploreTopicsResponseDto, TopicImageDescriptionResponseDto } from './dto/explore.dto';
 
 // 🤖 OpenAI 서비스 임포트
@@ -40,7 +40,7 @@ export class TopicsService {
 
   // 🔧 서비스 생성자 - 필요한 모델과 서비스 주입
   constructor(
-    @InjectModel(Topic.name) private topicModel: Model<TopicDocument>,
+    // @InjectModel(Topic.name) private topicModel: Model<TopicDocument>,
     @InjectModel('Conversation') private conversationModel: Model<ConversationDocument>,
     private readonly openAIService: OpenAIService,
     private readonly s3Service: S3Service
@@ -65,11 +65,32 @@ export class TopicsService {
     }
 
     // 📋 이전 추천 주제 가져오기
+    this.logger.log('이전 추천 주제 가져오기');
     const previousTopics = this.previousTopicsMap.get(dto.sessionId) || [];
 
     // 👋 첫 방문 또는 새로운 세션 시작 시 처리
     if (dto.userRequestExploreWav === 'first') {
-      return await this.handleFirstVisit(dto, previousTopics);
+      const response = await this.handleFirstVisit(dto, previousTopics);
+      
+      // 🔢 현재 세션의 마지막 대화 순서 조회
+      const lastConversation = await this.conversationModel
+        .findOne({ sessionId: dto.sessionId })
+        .sort({ conversationOrder: -1 });
+      
+      const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
+      
+      await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: '첫 방문',
+        aiResponse: response.aiText,
+        conversationOrder: nextOrder
+      });
+      return {
+        topics: response.topics,
+        select: response.select,
+        aiResponseExploreWav: response.aiResponseExploreWav
+      };
     }
 
     // 🔍 사용자의 응답 분석
@@ -77,21 +98,58 @@ export class TopicsService {
 
     // 🎯 사용자가 특정 주제를 선택한 경우 (확정은 아직)
     if (analysis.selectedTopic && !analysis.confirmedTopic) {
-      return await this.handleTopicSelection(analysis.selectedTopic, dto.name, dto.isTimedOut);
+      const response = await this.handleTopicSelection(analysis.selectedTopic, dto.name, dto.isTimedOut);
+      
+      // 🔢 현재 세션의 마지막 대화 순서 조회
+      const lastConversation = await this.conversationModel
+        .findOne({ sessionId: dto.sessionId })
+        .sort({ conversationOrder: -1 });
+      
+      const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
+      
+      await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: userText,
+        aiResponse: response.aiResponseExploreWav,
+        conversationOrder: nextOrder
+      });
+      return response;
     }
 
     // ✅ 사용자가 주제를 확정한 경우
     if (analysis.confirmedTopic) {
-      return await this.handleTopicConfirmation(previousTopics[0], dto.name);
+      const response = await this.handleTopicConfirmation(previousTopics[0], dto.name);
+      await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: userText,
+        aiResponse: response.aiResponseExploreWav
+      });
+      return response;
     }
 
     // 🔄 사용자가 다른 주제 그룹을 원하는 경우
     if (analysis.wantsDifferentGroup) {
-      return await this.handleDifferentGroupRequest(dto, previousTopics);
+      const response = await this.handleDifferentGroupRequest(dto, previousTopics);
+      await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: userText,
+        aiResponse: response.aiResponseExploreWav
+      });
+      return response;
     }
 
     // 🎨 현재 그룹에서 다른 주제를 원하는 경우 (기본 케이스)
-    return await this.handleSameGroupDifferentTopics(dto, previousTopics);
+    const response = await this.handleSameGroupDifferentTopics(dto, previousTopics);
+    await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: userText,
+        aiResponse: response.aiResponseExploreWav
+    });
+    return response;
   }
 
   // 🎯 주요 핸들러 함수들
@@ -101,26 +159,32 @@ export class TopicsService {
   private async handleFirstVisit(
     dto: ExploreTopicsRequestDto,
     previousTopics: string[]
-  ): Promise<ExploreTopicsResponseDto> {
+  ): Promise<ExploreTopicsResponseDto & { aiText: string }> {
+    // 📝 사용자의 관심사 분석
     const interests = await this.analyzeInterests(dto.sessionId);
+    // 🎲 주제 그룹 생성
     this.dynamicTopicGroups = await this.generateTopicGroups(interests);
+    // 🎯 주제 그룹 선택
     const group = await this.selectTopicGroupWithAI(interests);
+    // 📚 주제 선택
     const selectedTopics = this.getTopicsFromGroup(group);
-    
+    // 📝 이전 추천 주제 저장
     this.previousTopicsMap.set(dto.sessionId, selectedTopics);
-    
+    // 🎤 AI 응답 생성
     const aiResponse = await this.generateAIResponse(
       dto.name,
       selectedTopics,
       dto.isTimedOut,
       true
     );
-
+    // 🎤 AI 음성 응답 생성
     const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // 📝 응답 반환 (텍스트 포함)
     return {
       topics: selectedTopics,
       select: 'false',
-      aiResponseExploreWav: audioBuffer
+      aiResponseExploreWav: audioBuffer,
+      aiText: aiResponse
     };
   }
 

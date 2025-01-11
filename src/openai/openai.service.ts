@@ -87,10 +87,10 @@ export class OpenAIService {
 
       // 🔄 응답을 Buffer로 변환하고 압축
       const buffer = Buffer.from(await audioResponse.arrayBuffer());
-      const compressedBuffer = await this.compressBuffer(buffer);
+      // const compressedBuffer = await this.compressBuffer(buffer);
       
       this.logger.debug('Text to speech conversion and compression completed');
-      return compressedBuffer; // 압축된 버퍼 반환
+      return buffer; // 압축된 버퍼 반환
     } catch (error) {
       this.logger.error(`Error in textToSpeech: ${error.message}`, error.stack);
       throw error;
@@ -118,6 +118,35 @@ export class OpenAIService {
     } catch (error) {
       this.logger.error(`Error in generateImage: ${error.message}`, error.stack);
       throw error;
+    }
+  }
+
+  /**
+   * 🖼️ 이미지 분석
+   */
+  async analyzeImage(imageUrl: string, prompt: string): Promise<string> {
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: { url: imageUrl }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500
+      });
+
+      return response.choices[0]?.message?.content || '';
+    } catch (error) {
+      this.logger.error(`Error analyzing image: ${error.message}`, error.stack);
+      throw new Error('이미지 분석 중 오류가 발생했습니다.');
     }
   }
 }
