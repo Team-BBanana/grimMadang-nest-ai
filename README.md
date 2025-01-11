@@ -184,7 +184,24 @@ npm run start:dev
 npm run start:prod
 ```
 
-### 5. 문제 해결
+### 5. Node.js 경고 메시지 해결
+```powershell
+# punycode 모듈 deprecation 경고 해결
+
+# 1. 외부 punycode 패키지 설치
+npm install punycode
+
+# 2. 경고 무시하고 실행
+node --no-deprecation your_script.js
+
+# 3. 경고 발생 위치 추적
+node --trace-deprecation your_script.js
+
+# 4. 의존성 업데이트
+npm update
+```
+
+### 6. 문제 해결
 ```powershell
 # 의존성 문제 발생시 아래 순서대로 실행
 
