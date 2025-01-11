@@ -69,7 +69,14 @@ export class TopicsService {
 
     // 👋 첫 방문 또는 새로운 세션 시작 시 처리
     if (dto.userRequestExploreWav === 'first') {
-      return await this.handleFirstVisit(dto, previousTopics);
+      const response = await this.handleFirstVisit(dto, previousTopics);
+      await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: '첫 방문',
+        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+      });
+      return response;
     }
 
     // 🔍 사용자의 응답 분석
@@ -77,21 +84,49 @@ export class TopicsService {
 
     // 🎯 사용자가 특정 주제를 선택한 경우 (확정은 아직)
     if (analysis.selectedTopic && !analysis.confirmedTopic) {
-      return await this.handleTopicSelection(analysis.selectedTopic, dto.name, dto.isTimedOut);
+      const response = await this.handleTopicSelection(analysis.selectedTopic, dto.name, dto.isTimedOut);
+      await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: userText,
+        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+      });
+      return response;
     }
 
     // ✅ 사용자가 주제를 확정한 경우
     if (analysis.confirmedTopic) {
-      return await this.handleTopicConfirmation(previousTopics[0], dto.name);
+      const response = await this.handleTopicConfirmation(previousTopics[0], dto.name);
+      await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: userText,
+        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+      });
+      return response;
     }
 
     // 🔄 사용자가 다른 주제 그룹을 원하는 경우
     if (analysis.wantsDifferentGroup) {
-      return await this.handleDifferentGroupRequest(dto, previousTopics);
+      const response = await this.handleDifferentGroupRequest(dto, previousTopics);
+      await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: userText,
+        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+      });
+      return response;
     }
 
     // 🎨 현재 그룹에서 다른 주제를 원하는 경우 (기본 케이스)
-    return await this.handleSameGroupDifferentTopics(dto, previousTopics);
+    const response = await this.handleSameGroupDifferentTopics(dto, previousTopics);
+    await this.conversationModel.create({
+        sessionId: dto.sessionId,
+        name: dto.name,
+        userText: userText,
+        aiResponse: await this.openAIService.speechToText(response.aiResponseExploreWav)
+    });
+    return response;
   }
 
   // 🎯 주요 핸들러 함수들
