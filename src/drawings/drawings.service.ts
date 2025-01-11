@@ -7,7 +7,9 @@ export class DrawingsService {
   private readonly logger = new Logger(DrawingsService.name);
   private readonly PASS_THRESHOLD = 80;
 
-  constructor(private readonly openAIService: OpenAIService) {}
+  constructor(
+    private readonly openAIService: OpenAIService
+  ) {}
 
   /**
    * 🎨 그림 제출 및 평가 - 메인로직 

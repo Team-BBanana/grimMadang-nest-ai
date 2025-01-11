@@ -87,10 +87,10 @@ export class OpenAIService {
 
       // 🔄 응답을 Buffer로 변환하고 압축
       const buffer = Buffer.from(await audioResponse.arrayBuffer());
-      const compressedBuffer = await this.compressBuffer(buffer);
+      // const compressedBuffer = await this.compressBuffer(buffer);
       
       this.logger.debug('Text to speech conversion and compression completed');
-      return compressedBuffer; // 압축된 버퍼 반환
+      return buffer; // 압축된 버퍼 반환
     } catch (error) {
       this.logger.error(`Error in textToSpeech: ${error.message}`, error.stack);
       throw error;

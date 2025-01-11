@@ -4,7 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
 // 📝 스키마와 DTO 타입 임포트
-import { Topic, TopicDocument } from './schemas/topic.schema';
+// import { Topic, TopicDocument } from './schemas/topic.schema';
 import { ExploreTopicsRequestDto, ExploreTopicsResponseDto, TopicImageDescriptionResponseDto } from './dto/explore.dto';
 
 // 🤖 OpenAI 서비스 임포트
@@ -40,7 +40,7 @@ export class TopicsService {
 
   // 🔧 서비스 생성자 - 필요한 모델과 서비스 주입
   constructor(
-    @InjectModel(Topic.name) private topicModel: Model<TopicDocument>,
+    // @InjectModel(Topic.name) private topicModel: Model<TopicDocument>,
     @InjectModel('Conversation') private conversationModel: Model<ConversationDocument>,
     private readonly openAIService: OpenAIService,
     private readonly s3Service: S3Service
@@ -65,16 +65,26 @@ export class TopicsService {
     }
 
     // 📋 이전 추천 주제 가져오기
+    this.logger.log('이전 추천 주제 가져오기');
     const previousTopics = this.previousTopicsMap.get(dto.sessionId) || [];
 
     // 👋 첫 방문 또는 새로운 세션 시작 시 처리
     if (dto.userRequestExploreWav === 'first') {
       const response = await this.handleFirstVisit(dto, previousTopics);
+      
+      // 🔢 현재 세션의 마지막 대화 순서 조회
+      const lastConversation = await this.conversationModel
+        .findOne({ sessionId: dto.sessionId })
+        .sort({ conversationOrder: -1 });
+      
+      const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
+      
       await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
         userText: '첫 방문',
-        aiResponse: response.aiText
+        aiResponse: response.aiText,
+        conversationOrder: nextOrder
       });
       return {
         topics: response.topics,
@@ -89,11 +99,20 @@ export class TopicsService {
     // 🎯 사용자가 특정 주제를 선택한 경우 (확정은 아직)
     if (analysis.selectedTopic && !analysis.confirmedTopic) {
       const response = await this.handleTopicSelection(analysis.selectedTopic, dto.name, dto.isTimedOut);
+      
+      // 🔢 현재 세션의 마지막 대화 순서 조회
+      const lastConversation = await this.conversationModel
+        .findOne({ sessionId: dto.sessionId })
+        .sort({ conversationOrder: -1 });
+      
+      const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
+      
       await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: response.aiResponseExploreWav
+        aiResponse: response.aiResponseExploreWav,
+        conversationOrder: nextOrder
       });
       return response;
     }

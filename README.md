@@ -143,16 +143,36 @@ Node.js >= 18.x
 MongoDB >= 7.x
 ```
 
-### 2. 환경변수
+### 2. 필수 패키지
 ```bash
-OPENAI_API_KEY=your_api_key
-MONGODB_URI=mongodb://localhost:27017/grimMadang
-SPRING_API_URL=http://localhost:8080
-AWS_ACCESS_KEY=your_aws_key
-AWS_SECRET_KEY=your_aws_secret
+# 환경 변수 관리
+npm install @nestjs/config
+
+# OpenAI 파일 처리
+npm install @web-std/file
 ```
 
-### 3. 설치 및 실행
+### 3. 환경변수
+```bash
+# OpenAI API 설정
+OPENAI_API_KEY=your_api_key
+
+# MongoDB 설정
+# 예시 입니다. 자신의 몽고DB 포트 확인해주세요.
+MONGODB_URI=mongodb://localhost:27017/grimMadang
+
+# Spring API 설정
+# 예시 8080입니다. 자신의 스프링서버 포트 확인해주세요.
+SPRING_API_URL=http://localhost:8080
+
+# AWS S3 설정
+AWS_ACCESS_KEY=your_aws_key
+AWS_SECRET_KEY=your_aws_secret
+AWS_REGION=your_region
+AWS_BUCKET_NAME=your_bucket_name
+```
+
+### 4. 설치 및 실행
 ```bash
 # 설치
 npm install
@@ -162,6 +182,23 @@ npm run start:dev
 
 # 배포 실행
 npm run start:prod
+```
+
+### 5. 문제 해결
+```powershell
+# 의존성 문제 발생시 아래 순서대로 실행
+
+# 1. 현재 node_modules 삭제
+Remove-Item -Recurse -Force node_modules
+
+# 2. package-lock.json 삭제
+Remove-Item package-lock.json
+
+# 3. npm 캐시 정리
+npm cache clean --force
+
+# 4. 의존성 재설치
+npm install
 ```
 
 ## 📚 API 문서
