@@ -99,8 +99,9 @@ export class TopicsService {
       return response;
     }
 
-    // frist 아닌 경우
+    // first 아닌 경우
     // 🔍 사용자의 응답 분석
+    this.logger.log('사용자의 응답 분석');
     const analysis = await this.analyzeUserResponse(userText, lastConversation);
 
     // 🎯 사용자가 특정 주제를 선택한 경우 (확정은 아직)

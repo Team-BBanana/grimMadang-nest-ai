@@ -120,7 +120,7 @@ export class ConversationService {
         sessionId,
         name,
         userText,
-        aiResponse,
+        originalText: aiResponse,
         isFirstVisit,
         attendanceTotal,
         attendanceStreak,
@@ -189,14 +189,14 @@ export class ConversationService {
 
       // 🔊 음성 변환
       // 대신 로컬 WAV 파일 읽기 
-      const fs = require('fs');
-      const path = require('path');
-      const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
-      const aiResponseWav = fs.readFileSync(wavFile);
-      this.logger.debug('Loaded local WAV file for response');
+      // const fs = require('fs');
+      // const path = require('path');
+      // const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
+      // // const aiResponseWav = fs.readFileSync(wavFile);
+      // this.logger.debug('Loaded local WAV file for response');
       // TODO: TTS 임시 비활성화 (비용 절감)
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      // this.logger.debug('Generated empty buffer for audio response');
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      this.logger.debug('Generated empty buffer for audio response');
 
 
       // 💾 대화 내용 저장
