@@ -168,6 +168,7 @@ export class ConversationService {
         위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
         출석 기록이 있다면 칭찬하고, 오늘도 함께 즐거운 시간을 보내자고 격려해주세요.
         이름을 자연스럽게 포함하여 대화하세요.
+        주제를 제안하면서 자연스럽게 그림을 그리도록 말해주세요
       `;
     } else {
       prompt = `
@@ -177,6 +178,7 @@ export class ConversationService {
         ${welcomeFlowDto.name}님께서 처음 방문하셨습니다.
         친근하고 따뜻한 환영 인사를 해주세요.
         이름을 자연스럽게 포함하여 대화하세요.
+        주제를 제안하면서 자연스럽게 그림을 그리도록 말해주세요
       `;
     }
 
@@ -188,13 +190,16 @@ export class ConversationService {
       this.logger.debug('AI Response:', aiResponse);
 
       // 🔊 음성 변환
-      // 대신 로컬 WAV 파일 읽기
+      // 대신 로컬 WAV 파일 읽기 
       const fs = require('fs');
       const path = require('path');
       const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
       const aiResponseWav = fs.readFileSync(wavFile);
       this.logger.debug('Loaded local WAV file for response');
-      
+      // TODO: TTS 임시 비활성화 (비용 절감)
+      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      // this.logger.debug('Generated empty buffer for audio response');
+
       // 💾 대화 내용 저장
       await this.saveConversation(
         welcomeFlowDto.sessionId,
@@ -262,14 +267,16 @@ export class ConversationService {
 
         위 대화 내역을 바탕으로 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
         이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
+        그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요
         
         또한, 대화 내용에서 다음 정보들을 파악해주세요:
         1. 사용자의 관심사 (예: 꽃, 풍경, 동물 등)
-        2. 또는 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
+        2. 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
         3. 선호도 (그림 난이도, 스타일, 좋아하는 주제나 색상 등)
         4. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
         
         파악된 정보는 답변 끝에 JSON 형식으로 추가해주세요:
+        JSON 형식으로 추가된 정보는 대화 내용에 포함되지 않습니다
         예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
         
         마지막으로, 사용자의 그림 그리기 의향도 판단해주세요:
