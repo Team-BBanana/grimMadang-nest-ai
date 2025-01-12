@@ -131,11 +131,19 @@ export class TopicsService {
     // ✅ 사용자가 주제를 확정한 경우
     if (analysis.confirmedTopic) {
       const response = await this.handleTopicConfirmation(previousTopics[0], dto.name);
+      // 🔢 현재 세션의 마지막 대화 순서 조회
+      const lastConversation = await this.conversationModel
+        .findOne({ sessionId: dto.sessionId })
+        .sort({ conversationOrder: -1 });
+      
+      const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
+      
       await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: response.aiResponseExploreWav
+        aiResponse: response.aiResponseExploreWav,
+        conversationOrder: nextOrder
       });
       return response;
     }
@@ -143,24 +151,40 @@ export class TopicsService {
     // 🔄 사용자가 다른 주제 그룹을 원하는 경우
     if (analysis.wantsDifferentGroup) {
       const response = await this.handleDifferentGroupRequest(dto, previousTopics);
+      // 🔢 현재 세션의 마지막 대화 순서 조회
+      const lastConversation = await this.conversationModel
+        .findOne({ sessionId: dto.sessionId })
+        .sort({ conversationOrder: -1 });
+      
+      const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
+      
       await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: response.aiResponseExploreWav
+        aiResponse: response.aiResponseExploreWav,
+        conversationOrder: nextOrder
       });
       return response;
     }
 
     // 🎨 현재 그룹에서 다른 주제를 원하는 경우 (기본 케이스)
     const response = await this.handleSameGroupDifferentTopics(dto, previousTopics);
-    await this.conversationModel.create({
-        sessionId: dto.sessionId,
-        name: dto.name,
-        userText: userText,
-        aiResponse: response.aiResponseExploreWav
-    });
-    return response;
+      // 🔢 현재 세션의 마지막 대화 순서 조회
+      const lastConversation = await this.conversationModel
+        .findOne({ sessionId: dto.sessionId })
+        .sort({ conversationOrder: -1 });
+      
+      const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
+      
+      await this.conversationModel.create({
+          sessionId: dto.sessionId,
+          name: dto.name,
+          userText: userText,
+          aiResponse: response.aiResponseExploreWav,
+          conversationOrder: nextOrder
+      });
+      return response;
   }
 
   // 🎯 주요 핸들러 함수들

@@ -48,12 +48,12 @@ export class ExploreTopicsRequestDto {
   rejectedCount: number;
 
   @ApiProperty({
-    description: '사용자의 음성 데이터 (첫 호출시: "first", 이후: base64로 인코딩된 WAV)',
-    example: 'first'
+    description: '사용자의 음성 데이터 (첫 호출시: "first", 이후: Buffer 또는 텍스트)',
+    example: 'first',
+    type: 'string',
+    format: 'binary'
   })
-  @IsString()
-  @IsNotEmpty()
-  userRequestExploreWav: string;
+  userRequestExploreWav: string | Buffer;
 
   @ApiProperty({
     description: '시간 초과 여부',
