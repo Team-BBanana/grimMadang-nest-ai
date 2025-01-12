@@ -236,7 +236,7 @@ export class TopicsService {
       select: 'false',
       aiResponseExploreWav: audioBuffer,
       metadata: metadata || undefined,
-      aiText: aiResponse
+      originalText: aiResponse
     };
   }
 
