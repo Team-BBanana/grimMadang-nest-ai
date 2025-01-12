@@ -22,7 +22,7 @@ export class Conversation {
 
   // 🤖 AI가 생성한 응답 텍스트 - 필수값
   @Prop({ required: true })
-  originalText: string;
+  aiResponse: string;
 
   // 👋 첫 방문 여부 표시 - 기본값 false로 설정
   @Prop({ required: true, default: false })
