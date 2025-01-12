@@ -1,0 +1,78 @@
+Date : 2025-01-11 21:09:28
+Directory : c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai
+Total : 31 files,  13566 codes, 252 comments, 363 blanks, all 14181 lines
+
+Languages
++--------------------+------------+------------+------------+------------+------------+
+| language           | files      | code       | comment    | blank      | total      |
++--------------------+------------+------------+------------+------------+------------+
+| JSON               |          5 |     11,858 |          0 |          5 |     11,863 |
+| TypeScript         |         23 |      1,408 |        250 |        274 |      1,932 |
+| Markdown           |          2 |        279 |          2 |         83 |        364 |
+| JSON with Comments |          1 |         21 |          0 |          1 |         22 |
++--------------------+------------+------------+------------+------------+------------+
+
+Directories
++------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                       | files      | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                          |         31 |     13,566 |        252 |        363 |     14,181 |
+| . (Files)                                                                                                  |          7 |     12,149 |          2 |         88 |     12,239 |
+| src                                                                                                        |         22 |      1,388 |        250 |        269 |      1,907 |
+| src (Files)                                                                                                |          2 |         49 |          2 |          8 |         59 |
+| src\aws                                                                                                    |          2 |         47 |          9 |          7 |         63 |
+| src\common                                                                                                 |          2 |         23 |          2 |          7 |         32 |
+| src\common\interceptors                                                                                    |          1 |         17 |          2 |          7 |         26 |
+| src\common\interfaces                                                                                      |          1 |          6 |          0 |          0 |          6 |
+| src\config                                                                                                 |          1 |         14 |          7 |          3 |         24 |
+| src\conversation                                                                                           |          5 |        361 |         70 |         82 |        513 |
+| src\conversation (Files)                                                                                   |          3 |        282 |         55 |         62 |        399 |
+| src\conversation\dto                                                                                       |          1 |         41 |          2 |          7 |         50 |
+| src\conversation\schemas                                                                                   |          1 |         38 |         13 |         13 |         64 |
+| src\drawings                                                                                               |          4 |        151 |         26 |         27 |        204 |
+| src\drawings (Files)                                                                                       |          3 |         97 |         26 |         19 |        142 |
+| src\drawings\dto                                                                                           |          1 |         54 |          0 |          8 |         62 |
+| src\openai                                                                                                 |          2 |        129 |         27 |         21 |        177 |
+| src\topics                                                                                                 |          4 |        614 |        107 |        114 |        835 |
+| src\topics (Files)                                                                                         |          3 |        535 |        104 |        102 |        741 |
+| src\topics\dto                                                                                             |          1 |         79 |          3 |         12 |         94 |
+| test                                                                                                       |          2 |         29 |          0 |          6 |         35 |
++------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++------------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| filename                                                                                                   | language           | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\README.md                                        | Markdown           |        210 |          0 |         54 |        264 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\README2.md                                       | Markdown           |         69 |          2 |         29 |        100 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\nest-cli.json                                    | JSON               |          8 |          0 |          1 |          9 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\package-lock.json                                | JSON               |     11,755 |          0 |          1 |     11,756 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\package.json                                     | JSON               |         82 |          0 |          1 |         83 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\app.module.ts                                | TypeScript         |         30 |          0 |          2 |         32 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\aws\aws.module.ts                            | TypeScript         |          7 |          0 |          1 |          8 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\aws\s3.service.ts                            | TypeScript         |         40 |          9 |          6 |         55 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\common\interceptors\transform.interceptor.ts | TypeScript         |         17 |          2 |          7 |         26 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\common\interfaces\api-response.interface.ts  | TypeScript         |          6 |          0 |          0 |          6 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\config\openai.config.ts                      | TypeScript         |         14 |          7 |          3 |         24 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\conversation.controller.ts      | TypeScript         |         41 |          8 |          5 |         54 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\conversation.module.ts          | TypeScript         |         17 |          8 |          2 |         27 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\conversation.service.ts         | TypeScript         |        224 |         39 |         55 |        318 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\dto\welcome-flow.dto.ts         | TypeScript         |         41 |          2 |          7 |         50 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\schemas\conversation.schema.ts  | TypeScript         |         38 |         13 |         13 |         64 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\drawings\drawings.controller.ts              | TypeScript         |         26 |          0 |          3 |         29 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\drawings\drawings.module.ts                  | TypeScript         |         11 |          0 |          1 |         12 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\drawings\drawings.service.ts                 | TypeScript         |         60 |         26 |         15 |        101 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\drawings\dto\submit-drawing.dto.ts           | TypeScript         |         54 |          0 |          8 |         62 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\main.ts                                      | TypeScript         |         19 |          2 |          6 |         27 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\openai\openai.module.ts                      | TypeScript         |          8 |          6 |          2 |         16 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\openai\openai.service.ts                     | TypeScript         |        121 |         21 |         19 |        161 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\topics\dto\explore.dto.ts                    | TypeScript         |         79 |          3 |         12 |         94 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\topics\topics.controller.ts                  | TypeScript         |         38 |          1 |          4 |         43 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\topics\topics.module.ts                      | TypeScript         |         20 |          2 |          1 |         23 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\topics\topics.service.ts                     | TypeScript         |        477 |        101 |         97 |        675 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\test\app.e2e-spec.ts                             | TypeScript         |         20 |          0 |          5 |         25 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\test\jest-e2e.json                               | JSON               |          9 |          0 |          1 |         10 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\tsconfig.build.json                              | JSON               |          4 |          0 |          1 |          5 |
+| c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\tsconfig.json                                    | JSON with Comments |         21 |          0 |          1 |         22 |
+| Total                                                                                                      |                    |     13,566 |        252 |        363 |     14,181 |
++------------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+

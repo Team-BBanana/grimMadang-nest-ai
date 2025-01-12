@@ -1,0 +1,33 @@
+"filename", "language", "JSON", "JSON with Comments", "Markdown", "TypeScript", "comment", "blank", "total"
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\README.md", "Markdown", 0, 0, 210, 0, 0, 54, 264
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\README2.md", "Markdown", 0, 0, 69, 0, 2, 29, 100
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\nest-cli.json", "JSON", 8, 0, 0, 0, 0, 1, 9
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\package-lock.json", "JSON", 11755, 0, 0, 0, 0, 1, 11756
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\package.json", "JSON", 82, 0, 0, 0, 0, 1, 83
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\app.module.ts", "TypeScript", 0, 0, 0, 30, 0, 2, 32
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\aws\aws.module.ts", "TypeScript", 0, 0, 0, 7, 0, 1, 8
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\aws\s3.service.ts", "TypeScript", 0, 0, 0, 40, 9, 6, 55
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\common\interceptors\transform.interceptor.ts", "TypeScript", 0, 0, 0, 17, 2, 7, 26
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\common\interfaces\api-response.interface.ts", "TypeScript", 0, 0, 0, 6, 0, 0, 6
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\config\openai.config.ts", "TypeScript", 0, 0, 0, 14, 7, 3, 24
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\conversation.controller.ts", "TypeScript", 0, 0, 0, 41, 8, 5, 54
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\conversation.module.ts", "TypeScript", 0, 0, 0, 17, 8, 2, 27
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\conversation.service.ts", "TypeScript", 0, 0, 0, 224, 39, 55, 318
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\dto\welcome-flow.dto.ts", "TypeScript", 0, 0, 0, 41, 2, 7, 50
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\conversation\schemas\conversation.schema.ts", "TypeScript", 0, 0, 0, 38, 13, 13, 64
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\drawings\drawings.controller.ts", "TypeScript", 0, 0, 0, 26, 0, 3, 29
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\drawings\drawings.module.ts", "TypeScript", 0, 0, 0, 11, 0, 1, 12
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\drawings\drawings.service.ts", "TypeScript", 0, 0, 0, 60, 26, 15, 101
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\drawings\dto\submit-drawing.dto.ts", "TypeScript", 0, 0, 0, 54, 0, 8, 62
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\main.ts", "TypeScript", 0, 0, 0, 19, 2, 6, 27
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\openai\openai.module.ts", "TypeScript", 0, 0, 0, 8, 6, 2, 16
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\openai\openai.service.ts", "TypeScript", 0, 0, 0, 121, 21, 19, 161
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\topics\dto\explore.dto.ts", "TypeScript", 0, 0, 0, 79, 3, 12, 94
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\topics\topics.controller.ts", "TypeScript", 0, 0, 0, 38, 1, 4, 43
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\topics\topics.module.ts", "TypeScript", 0, 0, 0, 20, 2, 1, 23
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\src\topics\topics.service.ts", "TypeScript", 0, 0, 0, 477, 101, 97, 675
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\test\app.e2e-spec.ts", "TypeScript", 0, 0, 0, 20, 0, 5, 25
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\test\jest-e2e.json", "JSON", 9, 0, 0, 0, 0, 1, 10
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\tsconfig.build.json", "JSON", 4, 0, 0, 0, 0, 1, 5
+"c:\Users\gsg04\Desktop\NaManMU\nest.js\grimMadang-nest-ai\tsconfig.json", "JSON with Comments", 0, 21, 0, 0, 0, 1, 22
+"Total", "-", 11858, 21, 279, 1408, 252, 363, 14181
