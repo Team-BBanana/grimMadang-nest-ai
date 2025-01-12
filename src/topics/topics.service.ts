@@ -677,10 +677,10 @@ export class TopicsService {
       return savedData;
     } catch (error) {
       this.logger.error(`Error saving metadata: ${error.message}`, error.stack);
-      return null;
+      return null;  
     }
   }
-
+// 이거 나중에 지워주셈 주석
   /**
    * 🔄 메타데이터 처리
    */
