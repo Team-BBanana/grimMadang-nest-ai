@@ -48,12 +48,12 @@ export class ExploreTopicsRequestDto {
   rejectedCount: number;
 
   @ApiProperty({
-    description: '사용자의 음성 데이터 (첫 호출시: "first", 이후: base64로 인코딩된 WAV)',
-    example: 'first'
+    description: '사용자의 음성 데이터 (첫 호출시: "first", 이후: Buffer 또는 텍스트)',
+    example: 'first',
+    type: 'string',
+    format: 'binary'
   })
-  @IsString()
-  @IsNotEmpty()
-  userRequestExploreWav: string;
+  userRequestExploreWav: string | Buffer;
 
   @ApiProperty({
     description: '시간 초과 여부',
@@ -86,9 +86,18 @@ export class ExploreTopicsResponseDto {
   aiResponseExploreWav: Buffer;
 
   @ApiProperty({
+    description: 'AI 응답의 원본 텍스트',
+    required: false
+  })
+  aiText?: string;
+
+  @ApiProperty({
     description: '선택된 주제에 대한 메타데이터 (이미지 URL, 설명 등)',
     required: false,
     type: TopicImageDescriptionResponseDto
   })
   metadata?: TopicImageDescriptionResponseDto;
+
+  @ApiProperty({ description: 'AI 응답의 원본 텍스트', required: false })
+  originalText?: string;
 } 
