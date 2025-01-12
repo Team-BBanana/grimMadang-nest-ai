@@ -168,7 +168,6 @@ export class ConversationService {
         위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
         출석 기록이 있다면 칭찬하고, 오늘도 함께 즐거운 시간을 보내자고 격려해주세요.
         이름을 자연스럽게 포함하여 대화하세요.
-        주제를 제안하면서 자연스럽게 그림을 그리도록 말해주세요
       `;
     } else {
       prompt = `
@@ -178,7 +177,6 @@ export class ConversationService {
         ${welcomeFlowDto.name}님께서 처음 방문하셨습니다.
         친근하고 따뜻한 환영 인사를 해주세요.
         이름을 자연스럽게 포함하여 대화하세요.
-        주제를 제안하면서 자연스럽게 그림을 그리도록 말해주세요
       `;
     }
 
@@ -189,16 +187,17 @@ export class ConversationService {
       const aiResponse = await this.openaiService.generateText(prompt);
       this.logger.debug('AI Response:', aiResponse);
 
-      // 🔊 음성 변환
-      // 대신 로컬 WAV 파일 읽기 
-      const fs = require('fs');
-      const path = require('path');
-      const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
-      const aiResponseWav = fs.readFileSync(wavFile);
-      this.logger.debug('Loaded local WAV file for response');
+      // // 🔊 음성 변환
+      // // 대신 로컬 WAV 파일 읽기 
+      // const fs = require('fs');
+      // const path = require('path');
+      // const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
+      // const aiResponseWav = fs.readFileSync(wavFile);
+      // this.logger.debug('Loaded local WAV file for response');
       // TODO: TTS 임시 비활성화 (비용 절감)
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      // this.logger.debug('Generated empty buffer for audio response');
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      this.logger.debug('Generated empty buffer for audio response');
+
 
       // 💾 대화 내용 저장
       await this.saveConversation(
@@ -223,12 +222,13 @@ export class ConversationService {
     } catch (error) {
       // ❌ 에러 처리
       this.logger.error(`Error in processFirstWelcomeWithAttendance: ${error.message}`, error.stack);
-      throw error;
+      throw error;(''); // 빈 버퍼 반환
+      // this.logger.debug('Generated empt
     }
   }
 
 
-  // 🌟 일반 대화 처리 메소드
+ // 🌟 일반 대화 처리 메소드
   // 메인 메소드2
   async processWelcomeFlow(
     welcomeFlowDto: WelcomeFlowRequestDto,
@@ -276,7 +276,6 @@ export class ConversationService {
         4. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
         
         파악된 정보는 답변 끝에 JSON 형식으로 추가해주세요:
-        JSON 형식으로 추가된 정보는 대화 내용에 포함되지 않습니다
         예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
         
         마지막으로, 사용자의 그림 그리기 의향도 판단해주세요:
@@ -291,23 +290,25 @@ export class ConversationService {
       const aiResponse = await this.openaiService.generateText(prompt);
       this.logger.debug('AI Response:', aiResponse);
 
-      // 🔊 사용자 정보 추출
+      // 🔊 사용자 정보 추출 (원본 응답에서)
       const userInfo = this.extractUserInfo(aiResponse);
+      
+      const wantsToDraw = /\[DRAW:true\]$/.test(aiResponse);
 
-      // 🔊 음성 변환 (INFO와 DRAW 태그 제거)
-      const cleanResponse = aiResponse
-        .replace(/\[INFO:.*?\]/, '')
-        .replace(/\[DRAW:(true|false)\]/, '')
+      this.logger.debug(`Wants to draw: ${wantsToDraw}`);
+
+      // 마지막 줄 제거 (JSON 태그가 있는 줄)
+      const cleanResponse = aiResponse.split('\n')
+        .filter(line => !line.includes('[INFO:') && !line.includes('[DRAW:'))
+        .join('\n')
         .trim();
       
+      this.logger.debug('Clean Response:', cleanResponse);
+      
       // TODO: TTS 임시 비활성화 (비용 절감)
-      // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
-      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
-
-      // 🎨 그림 그리기 의향 확인
-      const wantsToDraw = /\[DRAW:true\]$/.test(aiResponse);
-      this.logger.debug(`Wants to draw: ${wantsToDraw}`);
 
       // 💾 대화 내용 저장 (추출된 정보 포함)
       await this.saveConversation(
@@ -328,6 +329,7 @@ export class ConversationService {
       return {
         aiResponseWelcomeWav: aiResponseWav,
         choice: wantsToDraw,
+        wantedTopic: userInfo.wantedTopic
       };
     } catch (error) {
       // ❌ 에러 처리
