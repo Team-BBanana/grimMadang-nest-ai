@@ -26,4 +26,4 @@ export class DrawingsController {
     this.logger.debug(`Received drawing submission for topic: ${request.topic}, phase: ${request.phase}`);
     return this.drawingsService.evaluateDrawing(request);
   }
-} 
+}
