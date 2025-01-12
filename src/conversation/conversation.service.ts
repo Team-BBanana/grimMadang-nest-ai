@@ -5,6 +5,7 @@ import { WelcomeFlowRequestDto, WelcomeFlowResponseDto } from './dto/welcome-flo
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Conversation, ConversationDocument } from './schemas/conversation.schema';
+import { isBuffer } from 'util';
 
 // 💉 Injectable 데코레이터로 서비스 클래스 정의
 @Injectable()
@@ -22,6 +23,34 @@ export class ConversationService {
 
   ) { }
 
+  // 💬 AI 응답에서 사용자 정보를 추출하는 함수
+  private extractUserInfo(aiResponse: string): { 
+    interests?: string[], 
+    wantedTopic?: string, 
+    preferences?: { 
+      difficulty?: string; 
+      style?: string; 
+      subjects?: string[]; 
+      colors?: string[]; 
+    }, 
+    personalInfo?: { 
+      mood?: string; 
+      physicalCondition?: string; 
+      experience?: string; 
+    } 
+  } {
+    const infoMatch = aiResponse.match(/\[INFO:({.*?})\]/);
+    let userInfo = {};
+    if (infoMatch) {
+      try {
+        userInfo = JSON.parse(infoMatch[1]);
+        this.logger.debug('Extracted user info:', userInfo);
+      } catch (error) {
+        this.logger.error('Error parsing user info:', error);
+      }
+    }
+    return userInfo;
+  }
 
   // 💬 이전 대화 내역을 가져오는 private 메소드
   private async getPreviousConversations(sessionId: string): Promise<string> {
@@ -60,6 +89,7 @@ export class ConversationService {
     attendanceTotal?: string, // 총 출석일
     attendanceStreak?: string, // 연속 출석일
     interests?: string[], // 사용자의 관심사
+    wantedTopic?: string, // 사용자가 원하는 구체적인 키워드
     preferences?: { // 사용자의 선호도
       difficulty?: string; // 난이도
       style?: string; // 스타일
@@ -96,6 +126,7 @@ export class ConversationService {
         attendanceStreak,
         conversationOrder,
         interests,
+        wantedTopic,
         preferences,
         personalInfo,
       });
@@ -157,10 +188,16 @@ export class ConversationService {
       this.logger.debug('AI Response:', aiResponse);
 
       // 🔊 음성 변환
+      // 대신 로컬 WAV 파일 읽기 
+      const fs = require('fs');
+      const path = require('path');
+      const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
+      const aiResponseWav = fs.readFileSync(wavFile);
+      this.logger.debug('Loaded local WAV file for response');
       // TODO: TTS 임시 비활성화 (비용 절감)
-      // const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
-      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      this.logger.debug('Generated audio response');
+      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      // this.logger.debug('Generated empty buffer for audio response');
+
 
       // 💾 대화 내용 저장
       await this.saveConversation(
@@ -171,6 +208,10 @@ export class ConversationService {
         true,
         welcomeFlowDto.attendanceTotal,
         welcomeFlowDto.attendanceStreak,
+        undefined, // interests 초기화
+        undefined, // wantedTopic 초기화
+        undefined, // preferences 초기화
+        undefined  // personalInfo 초기화
       );
 
       // ✅ 결과 반환
@@ -181,12 +222,13 @@ export class ConversationService {
     } catch (error) {
       // ❌ 에러 처리
       this.logger.error(`Error in processFirstWelcomeWithAttendance: ${error.message}`, error.stack);
-      throw error;
+      throw error;(''); // 빈 버퍼 반환
+      // this.logger.debug('Generated empt
     }
   }
 
 
-  // 🌟 일반 대화 처리 메소드
+ // 🌟 일반 대화 처리 메소드
   // 메인 메소드2
   async processWelcomeFlow(
     welcomeFlowDto: WelcomeFlowRequestDto,
@@ -204,11 +246,8 @@ export class ConversationService {
       let userText: string;
 
       // 🎤 음성 데이터 처리
-      if (welcomeFlowDto.userRequestWelcomeWav.startsWith('data:audio') ||
-        /^[A-Za-z0-9+/=]+$/.test(welcomeFlowDto.userRequestWelcomeWav)) {
-        userText = await this.openaiService.speechToText(
-          Buffer.from(welcomeFlowDto.userRequestWelcomeWav, 'base64')
-        );
+      if (Buffer.isBuffer(welcomeFlowDto.userRequestWelcomeWav)) {
+        userText = await this.openaiService.speechToText(welcomeFlowDto.userRequestWelcomeWav);
         this.logger.debug('Converted speech to text:', userText);
       } else {
         userText = welcomeFlowDto.userRequestWelcomeWav;
@@ -228,14 +267,16 @@ export class ConversationService {
 
         위 대화 내역을 바탕으로 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
         이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
+        그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요
         
         또한, 대화 내용에서 다음 정보들을 파악해주세요:
         1. 사용자의 관심사 (예: 꽃, 풍경, 동물 등)
-        2. 선호도 (그림 난이도, 스타일, 좋아하는 주제나 색상 등)
-        3. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
+        2. 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
+        3. 선호도 (그림 난이도, 스타일, 좋아하는 주제나 색상 등)
+        4. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
         
         파악된 정보는 답변 끝에 JSON 형식으로 추가해주세요:
-        예시: [INFO:{"interests":["꽃","나비"],"preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
+        예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
         
         마지막으로, 사용자의 그림 그리기 의향도 판단해주세요:
         - 사용자가 그림 그리기에 긍정적이거나 관심을 보이면 답변 마지막에 "[DRAW:true]"를 추가해주세요.
@@ -249,47 +290,25 @@ export class ConversationService {
       const aiResponse = await this.openaiService.generateText(prompt);
       this.logger.debug('AI Response:', aiResponse);
 
-      // 🔊 사용자 정보 추출
-      // 이부분 프롬프트에 따른 개선 필요함. 너무 임시적으로 막 만듬.
-      const infoMatch = aiResponse.match(/\[INFO:({.*?})\]/);
-      let userInfo: {
-        interests?: string[]; // 사용자의 관심사
-        preferences?: { // 사용자의 선호도
-          difficulty?: string; // 난이도
-          style?: string; // 스타일
-          subjects?: string[]; // 주제
-          colors?: string[]; // 색상
-        };
-        personalInfo?: { // 사용자의 개인정보
-          mood?: string; // 현재 기분
-          physicalCondition?: string; // 신체 상태
-          experience?: string; // 그림 그리기 경험
-        };
-      } = {};
+      // 🔊 사용자 정보 추출 (원본 응답에서)
+      const userInfo = this.extractUserInfo(aiResponse);
       
-      if (infoMatch) {
-        try {
-          userInfo = JSON.parse(infoMatch[1]);
-          this.logger.debug('Extracted user info:', userInfo);
-        } catch (error) {
-          this.logger.error('Error parsing user info:', error);
-        }
-      }
+      const wantsToDraw = /\[DRAW:true\]$/.test(aiResponse);
 
-      // 🔊 음성 변환 (INFO와 DRAW 태그 제거)
-      const cleanResponse = aiResponse
-        .replace(/\[INFO:.*?\]/, '')
-        .replace(/\[DRAW:(true|false)\]/, '')
+      this.logger.debug(`Wants to draw: ${wantsToDraw}`);
+
+      // 마지막 줄 제거 (JSON 태그가 있는 줄)
+      const cleanResponse = aiResponse.split('\n')
+        .filter(line => !line.includes('[INFO:') && !line.includes('[DRAW:'))
+        .join('\n')
         .trim();
       
+      this.logger.debug('Clean Response:', cleanResponse);
+      
       // TODO: TTS 임시 비활성화 (비용 절감)
-      // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
-      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
-
-      // 🎨 그림 그리기 의향 확인
-      const wantsToDraw = /\[DRAW:true\]$/.test(aiResponse);
-      this.logger.debug(`Wants to draw: ${wantsToDraw}`);
 
       // 💾 대화 내용 저장 (추출된 정보 포함)
       await this.saveConversation(
@@ -301,6 +320,7 @@ export class ConversationService {
         undefined,
         undefined,
         userInfo.interests,
+        userInfo.wantedTopic,
         userInfo.preferences,
         userInfo.personalInfo,
       );
@@ -309,6 +329,7 @@ export class ConversationService {
       return {
         aiResponseWelcomeWav: aiResponseWav,
         choice: wantsToDraw,
+        wantedTopic: userInfo.wantedTopic
       };
     } catch (error) {
       // ❌ 에러 처리

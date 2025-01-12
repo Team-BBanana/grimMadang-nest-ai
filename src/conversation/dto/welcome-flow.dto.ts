@@ -15,10 +15,10 @@ export class WelcomeFlowRequestDto {
     name: string;
     
     @ApiProperty({
-      description: '사용자의 음성 데이터 (첫 대화시: "first", 이후: WAV 바이너리)',
-      example: 'first'
+      description: '사용자의 음성 데이터 배열 (첫 대화시: "first", 이후: WAV 바이너리 배열)',
+      example: ['first', Buffer.from('...')]
     })
-    userRequestWelcomeWav: string | 'first';
+    userRequestWelcomeWav: string | Buffer;
     
     @ApiProperty({
       description: '사용자의 총 출석 일수',
@@ -47,4 +47,10 @@ export class WelcomeFlowResponseDto {
       example: false
     })
     choice: boolean;
+
+    @ApiProperty({
+      description: '사용자가 원하는 구체적인 키워드',
+      example: '바나나'
+    })
+    wantedTopic?: string;
 }
