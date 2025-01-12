@@ -63,9 +63,17 @@ export class TopicsService {
     // 🎤 음성 데이터를 텍스트로 변환 (first가 아닌 경우)
     let userText = '';
     if (dto.userRequestExploreWav !== 'first') {
-      const audioBuffer = Buffer.from(dto.userRequestExploreWav, 'base64');
-      userText = await this.openAIService.speechToText(audioBuffer);
-      this.logger.debug('Converted user speech to text:', userText);
+      // 음성 데이터인 경우 (base64 형식 체크)
+      if (dto.userRequestExploreWav.startsWith('data:audio') || 
+          /^[A-Za-z0-9+/=]+$/.test(dto.userRequestExploreWav)) {
+        const audioBuffer = Buffer.from(dto.userRequestExploreWav, 'base64');
+        userText = await this.openAIService.speechToText(audioBuffer);
+        this.logger.debug('Converted user speech to text:', userText);
+      } else {
+        // 텍스트 데이터인 경우 직접 사용
+        userText = dto.userRequestExploreWav;
+        this.logger.debug('Using direct text input:', userText);
+      }
     }
 
     // 📋 이전 추천 주제 가져오기
