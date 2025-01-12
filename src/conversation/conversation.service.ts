@@ -45,7 +45,7 @@ export class ConversationService {
     this.logger.debug(`Found ${conversations.length} previous conversations`);
     return conversations
       .reverse()
-      .map(conv => `사용자: ${conv.userText}\n AI: ${conv.aiResponse}`)
+      .map(conv => `사용자: ${conv.userText}\n AI: ${conv.originalText}`)
       .join('\n\n');
   }
 

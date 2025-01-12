@@ -86,9 +86,18 @@ export class ExploreTopicsResponseDto {
   aiResponseExploreWav: Buffer;
 
   @ApiProperty({
+    description: 'AI 응답의 원본 텍스트',
+    required: false
+  })
+  aiText?: string;
+
+  @ApiProperty({
     description: '선택된 주제에 대한 메타데이터 (이미지 URL, 설명 등)',
     required: false,
     type: TopicImageDescriptionResponseDto
   })
   metadata?: TopicImageDescriptionResponseDto;
+
+  @ApiProperty({ description: 'AI 응답의 원본 텍스트', required: false })
+  originalText?: string;
 } 
