@@ -103,7 +103,7 @@ export class TopicsService {
     // 🔍 사용자의 응답 분석
     this.logger.log('사용자의 응답 분석');
     const analysis = await this.analyzeUserResponse(userText, lastConversation);
-
+    
     // 🎯 사용자가 특정 주제를 선택한 경우 (확정은 아직)
     if (analysis.selectedTopic && !analysis.confirmedTopic) {
       const response = await this.handleTopicSelection(analysis.selectedTopic, dto.name, dto.isTimedOut);
@@ -120,9 +120,22 @@ export class TopicsService {
       return response;
     }
 
+    this.logger.log("토픽 select 있잖아? : " + analysis.selectedTopic);
+
     // ✅ 사용자가 주제를 확정한 경우
     if (analysis.confirmedTopic) {
-      const response = await this.handleTopicConfirmation(previousTopics[0], dto.name);
+      this.logger.debug('주제 확정 처리 시작', {
+        selectedTopic: analysis.selectedTopic,
+        previousTopics
+      });
+      
+      const topicToConfirm = analysis.selectedTopic || previousTopics[0];
+      if (!topicToConfirm) {
+        this.logger.error('확정할 주제를 찾을 수 없습니다');
+        throw new Error('확정할 주제를 찾을 수 없습니다');
+      }
+
+      const response = await this.handleTopicConfirmation(topicToConfirm, dto.name);
       
       const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
       
@@ -130,7 +143,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        originalText: response.originalText || `${previousTopics[0]}로 시작해볼까요?`,
+        originalText: response.originalText || `${topicToConfirm}로 시작해볼까요?`,
         conversationOrder: nextOrder
       });
       return response;
@@ -248,6 +261,13 @@ export class TopicsService {
     selectedTopic: string,
     name: string
   ): Promise<ExploreTopicsResponseDto> {
+    this.logger.debug('주제 확정 처리 시작:', { selectedTopic, name });
+    
+    if (!selectedTopic) {
+      this.logger.error('선택된 주제가 없습니다');
+      throw new Error('선택된 주제가 없습니다');
+    }
+
     const confirmationPrompt = `
       주제: ${selectedTopic}
       상황: 노인 사용자가 해당 주제로 그림을 그리기로 확정했습니다.
@@ -259,6 +279,8 @@ export class TopicsService {
     `;
     
     const aiResponse = await this.openAIService.generateText(confirmationPrompt);
+    this.logger.debug('AI 응답 생성 완료:', aiResponse);
+
     // TODO: TTS 임시 비활성화 (비용 절감)
     // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
     const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
@@ -346,12 +368,15 @@ export class TopicsService {
     // 이전 대화에서 선택된 토픽 추출
     let previousTopic = null;
     if (lastConversation?.originalText) {
+      this.logger.log('이전 대화에서 선택된 토픽 추출');
       const match = lastConversation.originalText.match(/(.+)가 맞나요\?/);
       if (match) {
+        this.logger.log('이전 대화에서 선택된 토픽 추출 완료');
         previousTopic = match[1];
       }
     }
-
+    // 현재 통합 테스트 진행중에 토픽이 있는 경우, confirmedTopic 값을 true로 설정되는중
+    // 해당 부분 프롬프트 수정을 통해 개선 필요.
     const systemPrompt = 
       `당신은 노인 사용자의 응답을 분석하는 AI 어시스턴트다.
       - 사용자의 의도를 정확하게 파악하고 JSON 형식으로 응답한다
@@ -386,6 +411,7 @@ export class TopicsService {
         "wantsDifferentTopics": boolean  // 같은 그룹 내 다른 주제 요청 여부
       }`;
     
+    this.logger.log(analysisPrompt);
     const analysisResponse = await this.openAIService.generateText(systemPrompt, analysisPrompt);
     return JSON.parse(analysisResponse);
   }
