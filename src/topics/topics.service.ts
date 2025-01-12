@@ -93,7 +93,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: '첫 방문',
-        originalText: response.aiText,
+        originalText: response.originalText,
         conversationOrder: nextOrder
       });
       return response;
@@ -113,7 +113,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        originalText: response.aiText,
+        originalText: response.originalText,
         conversationOrder: nextOrder
       });
       return response;
@@ -129,7 +129,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        originalText: response.aiText || `${previousTopics[0]}로 시작해볼까요?`,
+        originalText: response.originalText || `${previousTopics[0]}로 시작해볼까요?`,
         conversationOrder: nextOrder
       });
       return response;
@@ -145,7 +145,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        originalText: response.aiText || '다른 주제 그룹을 보여드릴게요.',
+        originalText: response.originalText || '다른 주제 그룹을 보여드릴게요.',
         conversationOrder: nextOrder
       });
       return response;
@@ -160,7 +160,7 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        originalText: response.aiText || '다른 주제를 보여드릴게요.',
+        originalText: response.originalText || '다른 주제를 보여드릴게요.',
         conversationOrder: nextOrder
     });
     return response;
