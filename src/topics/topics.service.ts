@@ -219,8 +219,8 @@ export class TopicsService {
     const aiText = `${dto.name}님, 오늘은 ${selectedTopics.join(', ')} 중에서 그리고 싶은 주제를 선택해주세요.`;
     this.logger.log(aiText);
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = await this.openAIService.textToSpeech(aiText);
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     // 📝 응답 반환
     return {
@@ -242,8 +242,8 @@ export class TopicsService {
     const metadata = await this.handleTopicMetadata(selectedTopic);
     const aiResponse = `${selectedTopic}가 맞나요?`;
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -282,8 +282,8 @@ export class TopicsService {
     this.logger.debug('AI 응답 생성 완료:', aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -312,8 +312,8 @@ export class TopicsService {
     });
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,
@@ -341,8 +341,8 @@ export class TopicsService {
     });
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,

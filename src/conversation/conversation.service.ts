@@ -195,8 +195,11 @@ export class ConversationService {
       // // const aiResponseWav = fs.readFileSync(wavFile);
       // this.logger.debug('Loaded local WAV file for response');
       // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      this.logger.debug('Generated empty buffer for audio response');
+
+
+      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
+      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      // this.logger.debug('Generated empty buffer for audio response');
 
 
       // 💾 대화 내용 저장
