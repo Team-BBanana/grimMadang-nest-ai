@@ -99,7 +99,7 @@ export class OpenAIService {
       // const compressedBuffer = await this.compressBuffer(buffer);
       
       this.logger.debug('Text to speech conversion and compression completed');
-      return buffer; // 압축된 버퍼 반환
+      return buffer;
     } catch (error) {
       this.logger.error(`Error in textToSpeech: ${error.message}`, error.stack);
       throw error;

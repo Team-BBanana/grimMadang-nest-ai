@@ -157,7 +157,9 @@ export class ConversationService {
       this.logger.debug('AI Response:', aiResponse);
 
       // 🔊 음성 변환
-      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
+      // TODO: TTS 임시 비활성화 (비용 절감)
+      // const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
 
       // 💾 대화 내용 저장
@@ -280,7 +282,9 @@ export class ConversationService {
         .replace(/\[DRAW:(true|false)\]/, '')
         .trim();
       
-      const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      // TODO: TTS 임시 비활성화 (비용 절감)
+      // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
 
       // 🎨 그림 그리기 의향 확인
@@ -303,7 +307,7 @@ export class ConversationService {
 
       // ✅ 결과 반환
       return {
-        aiResponseWelcomeWav: aiResponseWav, // 이미 압축된 base64 문자열
+        aiResponseWelcomeWav: aiResponseWav,
         choice: wantsToDraw,
       };
     } catch (error) {
