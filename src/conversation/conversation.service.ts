@@ -188,11 +188,13 @@ export class ConversationService {
       this.logger.debug('AI Response:', aiResponse);
 
       // 🔊 음성 변환
-      // TODO: TTS 임시 비활성화 (비용 절감)
-      // const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
-      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      this.logger.debug('Generated audio response');
-
+      // 대신 로컬 WAV 파일 읽기
+      const fs = require('fs');
+      const path = require('path');
+      const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
+      const aiResponseWav = fs.readFileSync(wavFile);
+      this.logger.debug('Loaded local WAV file for response');
+      
       // 💾 대화 내용 저장
       await this.saveConversation(
         welcomeFlowDto.sessionId,
