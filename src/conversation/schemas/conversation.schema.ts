@@ -27,7 +27,7 @@ export class Conversation {
   // 👋 첫 방문 여부 표시 - 기본값 false로 설정
   @Prop({ required: true, default: false })
   isFirstVisit: boolean;
-
+  
   // 📅 총 출석 일수 기록 - 선택값
   @Prop()
   attendanceTotal?: string;
@@ -44,6 +44,10 @@ export class Conversation {
   @Prop({ type: [String], default: [] })
   interests: string[];  // 관심사 (예: "꽃", "풍경", "동물")
 
+  // 🔍 사용자가 원하는 구체적인 키워드 저장
+  @Prop()
+  wantedTopic?: string;
+  
   @Prop({ type: Object, default: {} })
   preferences: {
     difficulty?: string;     // 선호하는 난이도 (예: "쉬움", "보통", "어려움")
