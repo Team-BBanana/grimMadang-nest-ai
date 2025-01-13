@@ -156,27 +156,34 @@ export class ConversationService {
     // 📝 프롬프트 생성
     let prompt = '';
     if (hasAttendanceData) {
-
-      prompt = `
-        ${previousConversations ? '\n이전 대화 내역:\n\n' + `${previousConversations}` + '\n\n' : ''}
-        
-        사용자 정보:
-        - 이름: ${welcomeFlowDto.name}
-        ${welcomeFlowDto.attendanceTotal !== 'null' ? `- 총 출석일: ${welcomeFlowDto.attendanceTotal}일` : ''}
-        ${welcomeFlowDto.attendanceStreak !== 'null' ? `- 연속 출석일: ${welcomeFlowDto.attendanceStreak}일` : ''}
-
-        위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
-        출석 기록이 있다면 칭찬하고, 오늘도 함께 즐거운 시간을 보내자고 격려해주세요.
-        이름을 자연스럽게 포함하여 대화하세요.
+      const greetings = [
+        `${welcomeFlowDto.name}님, 반가워요! 오늘도 함께해서 기뻐요.`,
+        `${welcomeFlowDto.name}님, 좋은 하루 되세요!`,
+        `${welcomeFlowDto.name}님, 환영합니다! 멋진 하루 보내세요.`,
+        `${welcomeFlowDto.name}님, 또 만나 뵙게 되어 반가워요!`
+      ];
+      
+      const attendanceInfo = hasAttendanceData
+        ? `총 출석 ${welcomeFlowDto.attendanceTotal}일, 연속 ${welcomeFlowDto.attendanceStreak}일 기록이 있어요!`
+        : '';
+      
+      const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+      
+      const prompt = `
+        ${randomGreeting} ${attendanceInfo ? attendanceInfo : ''}
+        ${previousConversations ? `최근 대화 내용: ${previousConversations}` : ''}
       `;
+      
     } else {
       prompt = `
         사용자 정보:
         - 이름: ${welcomeFlowDto.name}
 
         ${welcomeFlowDto.name}님께서 처음 방문하셨습니다.
+        출석 기록이 없다면, 처음 방문한 사용자에게 출석 기록에 대한 언급은 하지 마세요
         친근하고 따뜻한 환영 인사를 해주세요.
         이름을 자연스럽게 포함하여 대화하세요.
+        너무 길지 않게 대화하세요.
       `;
     }
 
@@ -189,15 +196,12 @@ export class ConversationService {
 
       // 🔊 음성 변환
       // 대신 로컬 WAV 파일 읽기 
-      // const fs = require('fs');
-      // const path = require('path');
-      // const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
-      // // const aiResponseWav = fs.readFileSync(wavFile);
-      // this.logger.debug('Loaded local WAV file for response');
+      const fs = require('fs');
+      const path = require('path');
+      const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
+      const aiResponseWav = fs.readFileSync(wavFile);
+      this.logger.debug('Loaded local WAV file for response');
       // TODO: TTS 임시 비활성화 (비용 절감)
-
-
-      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
       // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       // this.logger.debug('Generated empty buffer for audio response');
 
