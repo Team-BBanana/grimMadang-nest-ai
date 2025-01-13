@@ -146,7 +146,7 @@ export class ConversationService {
       this.logger.log(`Processing first welcome with attendance for session: ${welcomeFlowDto.sessionId}`);
   
       // 📊 출석 데이터 존재 여부 확인
-      const hasAttendanceData = welcomeFlowDto.attendanceTotal !== 'null' || welcomeFlowDto.attendanceStreak !== 'null';
+      const hasAttendanceData = welcomeFlowDto.attendanceTotal !== null || welcomeFlowDto.attendanceStreak !== null;
   
       this.logger.debug(`Has attendance data: ${hasAttendanceData}`);
   
@@ -162,13 +162,13 @@ export class ConversationService {
           
           사용자 정보:
           - 이름: ${welcomeFlowDto.name}
-          ${welcomeFlowDto.attendanceTotal !== 'null' ? `- 총 출석일: ${welcomeFlowDto.attendanceTotal}일` : ''}
-          ${welcomeFlowDto.attendanceStreak !== 'null' ? `- 연속 출석일: ${welcomeFlowDto.attendanceStreak}일` : ''}
+          ${welcomeFlowDto.attendanceTotal !== null ? `- 총 출석일: ${welcomeFlowDto.attendanceTotal}일` : ''}
+          ${welcomeFlowDto.attendanceStreak !== null ? `- 연속 출석일: ${welcomeFlowDto.attendanceStreak}일` : ''}
   
           위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
           출석 기록이 있다면 칭찬하고, 오늘도 함께 즐거운 시간을 보내자고 격려해주세요.
-          이름을 자연스럽게 포함하여 대화하세요. 
-          인사말을 종료하면서 자연스럽게 그림 주제를 물어보세요.
+          출석 기록이 없다면, 처음 방문한 사용자에게 출석 기록에 대한 언급은 절대 하지 마세요.
+          이름을 자연스럽게 포함하여 대화하고 그림 주제를 제안하세요
         `;
       } else {
         prompt = `
@@ -176,6 +176,7 @@ export class ConversationService {
           - 이름: ${welcomeFlowDto.name}
   
           ${welcomeFlowDto.name}님께서 처음 방문하셨습니다.
+          처음 방문한 사용자에게 출석 기록에 대한 언급은 절대 하지 마세요.
           친근하고 따뜻한 환영 인사를 해주세요.
           이름을 자연스럽게 포함하여 대화하세요.
           인사말을 종료하면서 자연스럽게 그림 주제를 물어보세요.
@@ -263,29 +264,43 @@ export class ConversationService {
       const prompt = `
         ${previousConversations ? '이전 대화 내역:\n' + previousConversations + '\n\n' : ''}
         사용자 정보:
-        - 이름: ${welcomeFlowDto.name} (해당 이름을 기억하여, 이름을 다시 물어보는 질문이 나오면 해당 이름을 다시 알려드리면서 대화를 이어가주세요.)
+        - 이름: ${welcomeFlowDto.name} (이름을 기억해 대화를 이어가세요.)
         
-        현재 사용자 발화: ${userText} (해당 발화에 대한 답변이 1순위입니다. 다른 정보들은 해당 질문에 대한 답변을 자연스럽게 하기 위함입니다.)
+        현재 사용자 발화: ${userText} (해당 발화가 답변의 핵심입니다.)
 
-        중요: 반드시 한국어로 응답해주세요. 영어는 절대 사용하지 마세요.
+        중요: 반드시 한국어로 응답해주세요. 
         
-        위 대화 내역을 바탕으로 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
-        이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
-        그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
-   
-        또한, 대화 내용에서 다음 정보들을 파악해주세요:
+        중요: 이 대화의 유일한 목적은 그림 그리기입니다. 어떤 상황에서도 다른 주제로 전환하지 마세요.
+
+        사용자가 "다른 주제" 또는 "그리기 싫어"와 같은 말을 할 경우:
+        1. 그림 그리기의 중요성을 강조하세요.
+        2. 즉시 새롭고 매우 간단한 그림 주제를 제안하세요.
+        3. 그림 그리기 외의 주제(영화, 드라마, 여행, 취미 등)는 절대 언급하지 마세요.
+
+        답변 템플릿:
+        "이번 주제가 재미없게 느껴지시나요? 이번에는 [매우 간단한 주제]를 그려보는 건 어떨까요? 아주 쉽고 재미있을 거예요. 시작해볼까요?"
+
+        매우 간단한 그림 주제 예시:
+        - 바나나, 사과 같은 과일 
+        - 꽃 한 송이
+        - 해와 구름
+
+        모든 상황에서 그림 그리기로 대화를 유지하세요. 다른 주제로의 전환은 절대 허용되지 않습니다.
+        주제나 키워드 제안 시 그리기 어렵거나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
+
+        대화 내용에서 다음 정보들을 파악해주세요:
         1. 사용자의 관심사 (예: 꽃, 풍경, 동물 등)
         2. 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
         3. 선호도 (그림 난이도, 스타일, 좋아하는 주제나 색상 등)
         4. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
-        
-        파악된 정보는 답변 끝에 JSON 형식으로 추가해주세요:
+      
+        대화에 포함된 정보를 답변 끝에 JSON 형식으로 추가해주세요:
         예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
         
-        마지막으로, 사용자의 그림 그리기 의향도 판단해주세요:
+        사용자의 그림 그리기 의향을 판단해 태그에 추가하세요:
         - 사용자가 그림 그리기에 긍정적이거나 관심을 보이면 답변 마지막에 "[DRAW:true]"를 추가해주세요.
         - 사용자가 그림 그리기에 부정적이거나 관심이 없으면 답변 마지막에 "[DRAW:false]"를 추가해주세요.
-        - 답변은 자연스러워야 하며, [INFO]와 [DRAW] 태그는 맨 마지막에만 붙여주세요.
+        - 답변은 자연스럽고 대화의 흐름을 유지하며 [INFO]와 [DRAW] 태그는 마지막에만 포함해주세요.
       `;
 
       this.logger.debug('Generated prompt:', prompt);
