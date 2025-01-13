@@ -60,13 +60,24 @@ export class TopicsService {
     // 📝 로그 기록
     this.logger.log(`Exploring topics for user: ${dto.name} (${dto.sessionId})`);
 
+    // 🎤 현재 세션의 마지막 대화 순서 조회
+    const lastConversation = await this.conversationModel
+      .findOne({ sessionId: dto.sessionId })
+      .sort({ conversationOrder: -1 });
+
     // 🎤 음성 데이터를 텍스트로 변환 (first가 아닌 경우)
-    let userText = dto.userRequestExploreWav;
-    // if (dto.userRequestExploreWav !== 'first') {
-    //   const audioBuffer = Buffer.from(dto.userRequestExploreWav as string, 'base64');
-    //   userText = await this.openAIService.speechToText(audioBuffer);
-    //   this.logger.debug('Converted user speech to text:', userText);
-    // }
+    let userText = '';
+    if (dto.userRequestExploreWav !== 'first') {
+      // 음성 데이터인 경우 Buffer 타입 체크
+      if (Buffer.isBuffer(dto.userRequestExploreWav)) {
+        userText = await this.openAIService.speechToText(dto.userRequestExploreWav);
+        this.logger.debug('Converted user speech to text:', userText);
+      } else {
+        // 텍스트 데이터인 경우 직접 사용
+        userText = dto.userRequestExploreWav;
+        this.logger.debug('Using direct text input:', userText);
+      }
+    }
 
     // 📋 이전 추천 주제 가져오기
     this.logger.log('이전 추천 주제 가져오기');
@@ -76,25 +87,16 @@ export class TopicsService {
     if (dto.userRequestExploreWav === 'first') {
       const response = await this.handleFirstVisit(dto, previousTopics);
       
-      // 🔢 현재 세션의 마지막 대화 순서 조회
-      const lastConversation = await this.conversationModel
-        .findOne({ sessionId: dto.sessionId })
-        .sort({ conversationOrder: -1 });
-      
       const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
       
       await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
         userText: '첫 방문',
-        aiResponse: response.aiText,
+        aiResponse: response.originalText,
         conversationOrder: nextOrder
       });
-      return {
-        topics: response.topics,
-        select: response.select,
-        aiResponseExploreWav: response.aiResponseExploreWav
-      };
+      return response;
     }
 
     // first 아닌 경우
@@ -106,18 +108,13 @@ export class TopicsService {
     if (analysis.selectedTopic && !analysis.confirmedTopic) {
       const response = await this.handleTopicSelection(analysis.selectedTopic, dto.name, dto.isTimedOut);
       
-      // 🔢 현재 세션의 마지막 대화 순서 조회
-      const lastConversation = await this.conversationModel
-        .findOne({ sessionId: dto.sessionId })
-        .sort({ conversationOrder: -1 });
-      
       const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
       
       await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: response.aiResponseExploreWav,
+        aiResponse: response.originalText,
         conversationOrder: nextOrder
       });
       return response;
@@ -140,18 +137,13 @@ export class TopicsService {
 
       const response = await this.handleTopicConfirmation(topicToConfirm, dto.name);
       
-      // 🔢 현재 세션의 마지막 대화 순서 조회
-      const lastConversation = await this.conversationModel
-        .findOne({ sessionId: dto.sessionId })
-        .sort({ conversationOrder: -1 });
-      
       const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
       
       await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        originalText: response.originalText || `${topicToConfirm}로 시작해볼까요?`,
+        aiResponse: response.originalText || `${topicToConfirm}로 시작해볼까요?`,
         conversationOrder: nextOrder
       });
       return response;
@@ -161,18 +153,13 @@ export class TopicsService {
     if (analysis.wantsDifferentGroup) {
       const response = await this.handleDifferentGroupRequest(dto, previousTopics);
       
-      // 🔢 현재 세션의 마지막 대화 순서 조회
-      const lastConversation = await this.conversationModel
-        .findOne({ sessionId: dto.sessionId })
-        .sort({ conversationOrder: -1 });
-      
       const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
       
       await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: response.aiResponseExploreWav,
+        aiResponse: response.originalText || '다른 주제 그룹을 보여드릴게요.',
         conversationOrder: nextOrder
       });
       return response;
@@ -181,18 +168,13 @@ export class TopicsService {
     // 🎨 현재 그룹에서 다른 주제를 원하는 경우 (기본 케이스)
     const response = await this.handleSameGroupDifferentTopics(dto, previousTopics);
     
-    // 🔢 현재 세션의 마지막 대화 순서 조회
-    const lastConversation = await this.conversationModel
-      .findOne({ sessionId: dto.sessionId })
-      .sort({ conversationOrder: -1 });
-    
     const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
     
     await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: response.aiResponseExploreWav,
+        aiResponse: response.originalText || '다른 주제를 보여드릴게요.',
         conversationOrder: nextOrder
     });
     return response;
@@ -205,7 +187,7 @@ export class TopicsService {
   private async handleFirstVisit(
     dto: ExploreTopicsRequestDto,
     previousTopics: string[]
-  ): Promise<ExploreTopicsResponseDto & { aiText: string }> {
+  ): Promise<ExploreTopicsResponseDto> {
     // 📝 사용자의 관심사 분석
     const interests = await this.analyzeInterests(dto.sessionId);
     this.logger.debug('분석된 관심사:', interests);
@@ -237,15 +219,15 @@ export class TopicsService {
     const aiText = `${dto.name}님, 오늘은 ${selectedTopics.join(', ')} 중에서 그리고 싶은 주제를 선택해주세요.`;
     this.logger.log(aiText);
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = await this.openAIService.textToSpeech(aiText);
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     // 📝 응답 반환
     return {
       topics: selectedTopics,
       select: 'false',
       aiResponseExploreWav: audioBuffer,
-      aiText
+      originalText: aiText
     };
   }
 
@@ -260,14 +242,15 @@ export class TopicsService {
     const metadata = await this.handleTopicMetadata(selectedTopic);
     const aiResponse = `${selectedTopic}가 맞나요?`;
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
       select: 'false',
       aiResponseExploreWav: audioBuffer,
-      metadata: metadata || undefined
+      metadata: metadata || undefined,
+      originalText: aiResponse
     };
   }
 
@@ -299,13 +282,14 @@ export class TopicsService {
     this.logger.debug('AI 응답 생성 완료:', aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
       select: 'true',
-      aiResponseExploreWav: audioBuffer
+      aiResponseExploreWav: audioBuffer,
+      originalText: aiResponse
     };
   }
 
@@ -328,13 +312,14 @@ export class TopicsService {
     });
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
-      
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+
     return {
       topics: selectedTopics,
       select: 'false',
-      aiResponseExploreWav: audioBuffer
+      aiResponseExploreWav: audioBuffer,
+      originalText: aiResponse
     };
   }
 
@@ -356,13 +341,14 @@ export class TopicsService {
     });
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,
       select: 'false',
-      aiResponseExploreWav: audioBuffer
+      aiResponseExploreWav: audioBuffer,
+      originalText: aiResponse
     };
   }
 
@@ -370,7 +356,10 @@ export class TopicsService {
   /**
    * 🗣️ 사용자 응답 분석
    */
-  private async analyzeUserResponse(userText: string): Promise<{
+  private async analyzeUserResponse(
+    userText: string,
+    lastConversation: ConversationDocument | null
+  ): Promise<{
     selectedTopic: string | null;
     confirmedTopic: boolean;
     wantsDifferentGroup: boolean;
@@ -378,9 +367,9 @@ export class TopicsService {
   }> {
     // 이전 대화에서 선택된 토픽 추출
     let previousTopic = null;
-    if (lastConversation?.originalText) {
+    if (lastConversation?.aiResponse) {
       this.logger.log('이전 대화에서 선택된 토픽 추출');
-      const match = lastConversation.originalText.match(/(.+)가 맞나요\?/);
+      const match = lastConversation.aiResponse.match(/(.+)가 맞나요\?/);
       if (match) {
         this.logger.log('이전 대화에서 선택된 토픽 추출 완료');
         previousTopic = match[1];
@@ -388,7 +377,6 @@ export class TopicsService {
     }
     // 현재 통합 테스트 진행중에 토픽이 있는 경우, confirmedTopic 값을 true로 설정되는중
     // 해당 부분 프롬프트 수정을 통해 개선 필요.
-
     const systemPrompt = 
       `당신은 노인 사용자의 응답을 분석하는 AI 어시스턴트다.
       - 사용자의 의도를 정확하게 파악하고 JSON 형식으로 응답한다
@@ -396,21 +384,29 @@ export class TopicsService {
       - 응답은 반드시 지정된 JSON 형식을 따른다
       - 에러가 발생하지 않도록 항상 유효한 JSON을 반환한다
       
+      중요한 규칙:
+      1. 이전 대화에서 선택된 토픽이 있다면 그것을 유지한다
+      2. 사용자가 처음 주제를 언급할 때는 항상 confirmedTopic을 false로 설정한다
+      3. confirmedTopic이 true가 되는 경우:
+         - 이전 대화에서 토픽이 제시되었고 사용자가 긍정적인 응답("네", "좋아요", "할래요" 등)을 한 경우
+         - 이전 대화에서 제시된 토픽을 사용자가 다시 언급하는 경우 (예: "바나나로 할게요" → "바나나")
+      
       반드시 순수한 JSON 형식으로만 응답하세요.
-      마크다운 코드 블록이나 다른 텍스트를 절대 포함하지 마세요.
-      주의: 응답에는 순수한 JSON만 포함되어야 합니다. 다른 텍스트나 마크다운은 절대 사용하지 마세요.
-      `;
+      마크다운 코드 블록이나 다른 텍스트를 절대 포함하지 마세요.`;
 
     const analysisPrompt = 
-     `다음 노인 사용자의 응답을 분석해주세요. 응답: "${userText}"
+     `이전 선택된 토픽: ${previousTopic || '없음'}
+      이전 대화 내용: ${lastConversation ? lastConversation.aiResponse : '없음'}
+      사용자 응답: "${userText}"
+
       1. 특정 주제를 선택했나요? (예: "참외가 좋겠다", "참외로 할까요?")
-      2. 선택한 주제를 확정했나요? (예: "네", "좋아요", "그걸로 할게요", "참외가 맞아요")
+      2. 선택한 주제를 확정했나요? (이전에 제시된 주제에 대한 긍정적 응답인가요?)
       3. 다른 종류의 주제를 원하나요?
       4. 현재 주제 그룹에서 다른 주제를 원하나요?
 
       JSON 형식으로 응답해주세요: { 
-        "selectedTopic": string | null,  // 선택한 주제 (있는 경우)
-        "confirmedTopic": boolean,       // 주제 확정 여부
+        "selectedTopic": string | null,  // 선택한 주제 (있는 경우) 또는 이전 대화의 주제
+        "confirmedTopic": boolean,       // 주제 확정 여부 (첫 언급은 항상 false)
         "wantsDifferentGroup": boolean,  // 다른 그룹 요청 여부
         "wantsDifferentTopics": boolean  // 같은 그룹 내 다른 주제 요청 여부
       }`;
@@ -421,41 +417,42 @@ export class TopicsService {
   }
 
   /**
-   * 💬 AI 응답 생성
+   * 💬 상황별 메시지 생성
    */
-  private async generateAIResponse(
+  private generateMessage(
     name: string,
     topics: string[] | string,
-    isTimedOut: string,
-    isFirstRequest: boolean,
-    isConfirmation: boolean = false,
-    isSelected: boolean = false,
-    guidelines: string = ''
-  ): Promise<string> {
-    let prompt = '';
+    options: {
+      isTimedOut?: string,
+      isFirstRequest?: boolean,
+      isConfirmation?: boolean,
+      isSelected?: boolean,
+      guidelines?: string
+    } = {}
+  ): string {
+    const { isTimedOut, isFirstRequest, isConfirmation, isSelected, guidelines } = options;
     
+    // 주제가 선택된 경우
     if (isSelected && typeof topics === 'string') {
       if (isConfirmation) {
-        prompt = `${topics}가 맞나요?`;
-      } else {
-        prompt = `${guidelines || `${topics}는 기본적인 형태를 잘 살리는 게 포인트예요. 한번 시작해볼까요?`}`;
+        return `${topics}가 맞나요?`;
       }
-    } 
-    else if (isFirstRequest) {
-      const topicsArray = Array.isArray(topics) ? topics : [topics];
-      if (isTimedOut === 'true') {
-        prompt = `${name}님, 이제 그림을 그려보는 건 어떨까요? 저희가 몇 가지 단어를 제시해 볼게요. 
-                ${topicsArray.join(', ')} 중에서 어떤 게 마음에 드세요?`;
-      } else {
-        prompt = `${name}님, ${topicsArray.join(', ')} 중에서 어떤 걸 그려보실래요?`;
-      }
-    } 
-    else {
-      const topicsArray = Array.isArray(topics) ? topics : [topics];
-      prompt = `${topicsArray.join(', ')} 중에서 어떤 걸 그려보실래요?`;
+      return guidelines || `${topics}는 기본적인 형태를 잘 살리는 게 포인트예요. 한번 시작해볼까요?`;
     }
 
-    return this.openAIService.generateText(prompt);
+    // 주제 목록을 배열로 변환
+    const topicsArray = Array.isArray(topics) ? topics : [topics];
+    
+    // 첫 요청인 경우
+    if (isFirstRequest) {
+      if (isTimedOut === 'true') {
+        return `${name}님, 이제 그림을 그려보는 건 어떨까요? 저희가 몇 가지 단어를 제시해 볼게요. ${topicsArray.join(', ')} 중에서 어떤 게 마음에 드세요?`;
+      }
+      return `${name}님, ${topicsArray.join(', ')} 중에서 어떤 걸 그려보실래요?`;
+    }
+    
+    // 기본 메시지
+    return `${name}님, ${topicsArray.join(', ')} 중에서 선택해보세요.`;
   }
 
   // 🎨 주제 관련 유틸리티 함수들
@@ -658,6 +655,7 @@ export class TopicsService {
    */
   private async checkTopicMetadata(topic: string): Promise<SpringMetadataResponse | null> {
     try {
+      this.logger.debug('메타데이터 조회 시작');
       const response = await fetch(`${process.env.SPRING_API_URL}/canvas/checkmetadata`, {
         method: 'POST',
         headers: {
@@ -714,12 +712,23 @@ export class TopicsService {
    * 🔄 메타데이터 처리
    */
   private async handleTopicMetadata(topic: string): Promise<SpringMetadataResponse | null> {
+    // 테스트를 위해 하드코딩된 메타데이터 반환
+    return {
+      topicName: topic,
+      imageUrl: 'https://oaidalleapiprodscus.blob.core.windows.net/private/org-VA11vTq5rYfo63AMCo370lYA/user-JeR40qlqTe9ZjKLkgf3BGbl1/img-vxsl0PojFefAONCCoaeRSwfc.png?st=2025-01-12T10%3A30%3A13Z&se=2025-01-12T12%3A30%3A13Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-01-12T00%3A43%3A20Z&ske=2025-01-13T00%3A43%3A20Z&sks=b&skv=2024-08-04&sig=LnDHnaEIKFKBiD%2BfDnnOI8LmQvETKqc4wWOaHAo80tY%3D',
+      description: `${topic}는 기본적인 형태를 잘 살리는 게 포인트예요. 한번 시작해볼까요?`
+    };
+
+    /* 기존 메타데이터 처리 로직
     const existingMetadata = await this.checkTopicMetadata(topic);
     if (existingMetadata) {
       return existingMetadata;
     }
 
-    const { guidelines, imageUrl } = await this.generateDrawingGuidelines(topic);
+    this.logger.log('메타데이터 생성 시작');
+    // const { guidelines, imageUrl } = await this.generateDrawingGuidelines(topic);
+    const guidelines = '이거 맞디~';
+    const imageUrl = 'https://oaidalleapiprodscus.blob.core.windows.net/private/org-VA11vTq5rYfo63AMCo370lYA/user-JeR40qlqTe9ZjKLkgf3BGbl1/img-vxsl0PojFefAONCCoaeRSwfc.png?st=2025-01-12T10%3A30%3A13Z&se=2025-01-12T12%3A30%3A13Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-01-12T00%3A43%3A20Z&ske=2025-01-13T00%3A43%3A20Z&sks=b&skv=2024-08-04&sig=LnDHnaEIKFKBiD%2BfDnnOI8LmQvETKqc4wWOaHAo80tY%3D';
     
     const newMetadata = {
       topicName: topic,
@@ -728,28 +737,7 @@ export class TopicsService {
     };
 
     return await this.saveTopicMetadata(newMetadata);
+    */
   }
 
-  /**
-   * 🗑️ 임시 메타데이터 삭제
-   */
-  private async deleteTemporaryMetadata(topic: string): Promise<void> {
-    try {
-      const response = await fetch(`${process.env.SPRING_API_URL}/canvas/deletemetadata`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ topicName: topic })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete metadata: ${response.status} - ${response.statusText}`);
-      }
-
-      this.logger.debug(`Successfully deleted temporary metadata for topic: ${topic}`);
-    } catch (error) {
-      this.logger.error(`Error deleting temporary metadata: ${error.message}`, error.stack);
-    }
-  }
 } 

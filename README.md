@@ -3,7 +3,7 @@
 ## 📋 프로젝트 개요
 노인 사용자를 위한 AI 기반 대화형 그림 그리기 서비스의 백엔드 서버입니다.
 
-## 🛠 최근 업데이트
+## 🔄 최근 업데이트
 
 ### 1. 주제 추천 서비스 개선 (2025.01.10)
 - **메타데이터 처리**
@@ -131,6 +131,26 @@ npm update
   - Buffer 타입 지원 추가
   - 다양한 입력 형식 자동 감지 및 처리
 
+### 12. 간단한 필드명 수정 (2025-01-13)
+- Topics 서비스 개선
+  - 주제 선택 및 확정 로직 개선
+  - 대화 저장 시 필드명 수정 (originalText → aiResponse)
+  - 로깅 추가로 디버깅 용이성 향상
+
+### Google Speech API 설정
+- 음성 인식을 위한 Google Cloud Speech-to-Text API 통합
+- 설정 방법:
+  1. Google Cloud Console에서 프로젝트 생성
+  2. Speech-to-Text API 활성화
+  3. API 키 생성
+  4. `.env` 파일에 API 키 추가:
+  ```env
+  GOOGLE_API_KEY=your_google_api_key_here
+  ```
+- 임시 비활성화:
+  - 테스트 시에는 `app.module.ts`에서 `GoogleModule` import를 주석 처리
+  - 실제 운영 환경에서는 반드시 활성화 필요
+
 ## 🚀 핵심 기능
 
 ### 1. 대화 관리 (ConversationService)
@@ -169,6 +189,9 @@ npm update
   - Whisper
   - TTS
   - DALL-E
+- Google Cloud Platform
+  - Speech-to-Text API
+  - Cloud Storage
 - AWS S3
 - Spring Boot 연동
 - Swagger
@@ -225,6 +248,9 @@ MONGODB_URI=mongodb://localhost:27017/grimMadang
 # Spring API 설정
 # 예시 8080입니다. 자신의 스프링서버 포트 확인해주세요.
 SPRING_API_URL=http://localhost:8080
+
+# Google Cloud Speech-to-Text API 설정
+GOOGLE_API_KEY=your_google_api_key
 
 # AWS S3 설정
 AWS_ACCESS_KEY=your_aws_key
