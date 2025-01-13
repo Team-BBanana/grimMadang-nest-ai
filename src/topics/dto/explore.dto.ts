@@ -53,7 +53,7 @@ export class ExploreTopicsRequestDto {
     type: 'string',
     format: 'binary'
   })
-  userRequestExploreWav: string | Buffer;
+  userRequestExploreWav: string;
 
   @ApiProperty({
     description: '시간 초과 여부',

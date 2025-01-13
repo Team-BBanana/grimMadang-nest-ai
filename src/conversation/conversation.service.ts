@@ -74,7 +74,7 @@ export class ConversationService {
     this.logger.debug(`Found ${conversations.length} previous conversations`);
     return conversations
       .reverse()
-      .map(conv => `사용자: ${conv.userText}\n AI: ${conv.originalText}`)
+      .map(conv => `사용자: ${conv.userText}\n AI: ${conv.aiResponse}`)
       .join('\n\n');
   }
 
@@ -113,7 +113,6 @@ export class ConversationService {
     const conversationOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
     this.logger.debug(`Conversation order: ${conversationOrder}`);
 
-
     // 💾 대화 내용 저장 시도
     try {
       await this.conversationModel.create({
@@ -130,6 +129,7 @@ export class ConversationService {
         preferences,
         personalInfo,
       });
+      
       this.logger.debug('Conversation saved successfully');
     } catch (error) {
       // ❌ 에러 발생 시 로깅 및 에러 전파
@@ -196,12 +196,15 @@ export class ConversationService {
 
       // 🔊 음성 변환
       // 대신 로컬 WAV 파일 읽기 
-      const fs = require('fs');
-      const path = require('path');
-      const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
-      const aiResponseWav = fs.readFileSync(wavFile);
-      this.logger.debug('Loaded local WAV file for response');
+      // const fs = require('fs');
+      // const path = require('path');
+      // const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
+      // const aiResponseWav = fs.readFileSync(wavFile);
+
+      // this.logger.debug('Loaded local WAV file for response');
       // TODO: TTS 임시 비활성화 (비용 절감)
+
+      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
       // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       // this.logger.debug('Generated empty buffer for audio response');
 
