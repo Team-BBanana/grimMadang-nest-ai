@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConversationModule } from './conversation/conversation.module';
 import { TopicsModule } from './topics/topics.module';
 import { DrawingsModule } from './drawings/drawings.module';
+import { GoogleModule } from './google/google.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { DrawingsModule } from './drawings/drawings.module';
         return connection;
       },
     }),
+    GoogleModule,
     ConversationModule,
     TopicsModule,
     DrawingsModule,
