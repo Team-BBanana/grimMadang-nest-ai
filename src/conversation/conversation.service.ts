@@ -113,13 +113,14 @@ export class ConversationService {
     const conversationOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
     this.logger.debug(`Conversation order: ${conversationOrder}`);
 
+
     // 💾 대화 내용 저장 시도
     try {
       await this.conversationModel.create({
         sessionId,
         name,
         userText,
-        originalText: aiResponse,
+        aiResponse,
         isFirstVisit,
         attendanceTotal,
         attendanceStreak,
@@ -129,7 +130,6 @@ export class ConversationService {
         preferences,
         personalInfo,
       });
-      
       this.logger.debug('Conversation saved successfully');
     } catch (error) {
       // ❌ 에러 발생 시 로깅 및 에러 전파
@@ -201,13 +201,9 @@ export class ConversationService {
       // const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
       // const aiResponseWav = fs.readFileSync(wavFile);
       // this.logger.debug('Loaded local WAV file for response');
-
       // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);      
-      
-      // 테스트용 : 빈 버퍼 반환
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      // this.logger.debug('Generated empty buffer for audio response');
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      this.logger.debug('Generated empty buffer for audio response');
 
 
       // 💾 대화 내용 저장
@@ -276,10 +272,12 @@ export class ConversationService {
         
         현재 사용자 발화: ${userText} (해당 발화에 대한 답변이 1순위입니다. 다른 정보들은 해당 질문에 대한 답변을 자연스럽게 하기 위함입니다.)
 
+        중요: 반드시 한국어로 응답해주세요. 영어는 절대 사용하지 마세요.
+        
         위 대화 내역을 바탕으로 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
         이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
-        그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요
-        
+        그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
+   
         또한, 대화 내용에서 다음 정보들을 파악해주세요:
         1. 사용자의 관심사 (예: 꽃, 풍경, 동물 등)
         2. 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
