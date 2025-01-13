@@ -218,9 +218,12 @@ export class TopicsService {
     // 🎤 선택된 주제를 음성 메시지로 변환
     const aiText = `${dto.name}님, 오늘은 ${selectedTopics.join(', ')} 중에서 그리고 싶은 주제를 선택해주세요.`;
     this.logger.log(aiText);
+
+    // TODO: 실 테스트용 AI 음성 버퍼 반환
+    const audioBuffer = await this.openAIService.textToSpeech(aiText);
+
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     // 📝 응답 반환
     return {
@@ -241,9 +244,11 @@ export class TopicsService {
   ): Promise<ExploreTopicsResponseDto> {
     const metadata = await this.handleTopicMetadata(selectedTopic);
     const aiResponse = `${selectedTopic}가 맞나요?`;
+    // TODO: 실제 테스트용 AI 음성 버퍼 반환
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -281,9 +286,11 @@ export class TopicsService {
     const aiResponse = await this.openAIService.generateText(confirmationPrompt);
     this.logger.debug('AI 응답 생성 완료:', aiResponse);
 
+    // TODO: 실제 테스트용 AI 음성 버퍼 반환
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -311,9 +318,11 @@ export class TopicsService {
       isFirstRequest: false
     });
 
+    // TODO: 테스트용 AI 음성 버퍼 반환
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,
@@ -340,9 +349,11 @@ export class TopicsService {
       isFirstRequest: false
     });
 
+    // TODO: 실제 테스트용 AI 음성 버퍼 반환
+      const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,

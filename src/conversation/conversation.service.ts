@@ -200,11 +200,12 @@ export class ConversationService {
       // const path = require('path');
       // const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
       // const aiResponseWav = fs.readFileSync(wavFile);
-
       // this.logger.debug('Loaded local WAV file for response');
-      // TODO: TTS 임시 비활성화 (비용 절감)
 
-      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
+      // TODO: TTS 임시 비활성화 (비용 절감)
+      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);      
+      
+      // 테스트용 : 빈 버퍼 반환
       // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       // this.logger.debug('Generated empty buffer for audio response');
 
