@@ -220,10 +220,10 @@ export class TopicsService {
     this.logger.log(aiText);
 
     // TODO: 실 테스트용 AI 음성 버퍼 반환
-    const audioBuffer = await this.openAIService.textToSpeech(aiText);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     // 📝 응답 반환
     return {
@@ -245,10 +245,10 @@ export class TopicsService {
     const metadata = await this.handleTopicMetadata(selectedTopic);
     const aiResponse = `${selectedTopic}가 맞나요?`;
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -287,10 +287,10 @@ export class TopicsService {
     this.logger.debug('AI 응답 생성 완료:', aiResponse);
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -319,10 +319,10 @@ export class TopicsService {
     });
 
     // TODO: 테스트용 AI 음성 버퍼 반환
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
     
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,
@@ -350,10 +350,10 @@ export class TopicsService {
     });
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-      const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+      // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,
@@ -378,49 +378,55 @@ export class TopicsService {
   }> {
     // 이전 대화에서 선택된 토픽 추출
     let previousTopic = null;
+    let isTopicProposed = false;
+    
     if (lastConversation?.aiResponse) {
       this.logger.log('이전 대화에서 선택된 토픽 추출');
-      const match = lastConversation.aiResponse.match(/(.+)가 맞나요\?/);
-      if (match) {
-        this.logger.log('이전 대화에서 선택된 토픽 추출 완료');
-        previousTopic = match[1];
+      const matchConfirm = lastConversation.aiResponse.match(/(.+)가 맞나요\?/);
+      if (matchConfirm) {
+        this.logger.log('이전 대화에서 제안된 토픽 발견');
+        previousTopic = matchConfirm[1];
+        isTopicProposed = true;
       }
     }
-    // 현재 통합 테스트 진행중에 토픽이 있는 경우, confirmedTopic 값을 true로 설정되는중
-    // 해당 부분 프롬프트 수정을 통해 개선 필요.
+
     const systemPrompt = 
-      `당신은 노인 사용자의 응답을 분석하는 AI 어시스턴트다.
-      - 사용자의 의도를 정확하게 파악하고 JSON 형식으로 응답한다
-      - 모호한 표현이나 불명확한 응답도 맥락을 고려해 최선의 판단을 한다
-      - 응답은 반드시 지정된 JSON 형식을 따른다
-      - 에러가 발생하지 않도록 항상 유효한 JSON을 반환한다
+      `당신은 노인 사용자의 응답을 분석하는 AI 어시스턴트입니다.
       
       중요한 규칙:
-      1. 이전 대화에서 선택된 토픽이 있다면 그것을 유지한다
-      2. 사용자가 처음 주제를 언급할 때는 항상 confirmedTopic을 false로 설정한다
-      3. confirmedTopic이 true가 되는 경우:
-         - 이전 대화에서 토픽이 제시되었고 사용자가 긍정적인 응답("네", "좋아요", "할래요" 등)을 한 경우
-         - 이전 대화에서 제시된 토픽을 사용자가 다시 언급하는 경우 (예: "바나나로 할게요" → "바나나")
+      1. 토픽 선택과 확정은 반드시 두 단계로 진행됩니다.
+      2. 새로운 토픽이 언급되면 항상 선택 단계로 처리합니다 (confirmedTopic: false).
+      3. 확정(confirmedTopic: true)은 다음 경우에만 가능합니다:
+         - 이전 대화에서 "~가 맞나요?"라고 제안된 토픽에 대해
+         - 사용자가 명확한 긍정의 응답을 한 경우만
+         - 긍정 응답 예시: "네", "좋아요", "그래요", "할게요"
+      4. 단순히 토픽을 언급하는 것은 항상 선택으로 처리합니다.
+         예시: "바나나" → selectedTopic: "바나나", confirmedTopic: false
+      5. 이전 대화에서 제안되지 않은 새로운 토픽은 무조건 선택 단계로 처리합니다.
       
-      반드시 순수한 JSON 형식으로만 응답하세요.
-      마크다운 코드 블록이나 다른 텍스트를 절대 포함하지 마세요.`;
+      응답 형식:
+      {
+        "selectedTopic": string | null,   // 선택한 주제 또는 이전 대화의 주제
+        "confirmedTopic": boolean,        // 주제 확정 여부
+        "wantsDifferentGroup": boolean,   // 다른 그룹 요청 여부
+        "wantsDifferentTopics": boolean   // 같은 그룹 내 다른 주제 요청 여부
+      }`;
 
     const analysisPrompt = 
-     `이전 선택된 토픽: ${previousTopic || '없음'}
-      이전 대화 내용: ${lastConversation ? lastConversation.aiResponse : '없음'}
-      사용자 응답: "${userText}"
+     `현재 상황:
+      - 이전 제안된 토픽: ${previousTopic || '없음'}
+      - 토픽 제안 여부: ${isTopicProposed ? '예 (확정 가능)' : '아니오 (선택 단계 필요)'}
+      - 이전 대화 내용: ${lastConversation ? lastConversation.aiResponse : '없음'}
+      - 사용자 응답: "${userText}"
 
-      1. 특정 주제를 선택했나요? (예: "참외가 좋겠다", "참외로 할까요?")
-      2. 선택한 주제를 확정했나요? (이전에 제시된 주제에 대한 긍정적 응답인가요?)
-      3. 다른 종류의 주제를 원하나요?
-      4. 현재 주제 그룹에서 다른 주제를 원하나요?
+      분석 필요 사항:
+      1. 사용자가 특정 주제를 언급했나요?
+      2. 이전에 제안된 주제에 대한 확실한 긍정 응답인가요?
+      3. 다른 주제나 그룹을 원하나요?
 
-      JSON 형식으로 응답해주세요: { 
-        "selectedTopic": string | null,  // 선택한 주제 (있는 경우) 또는 이전 대화의 주제
-        "confirmedTopic": boolean,       // 주제 확정 여부 (첫 언급은 항상 false)
-        "wantsDifferentGroup": boolean,  // 다른 그룹 요청 여부
-        "wantsDifferentTopics": boolean  // 같은 그룹 내 다른 주제 요청 여부
-      }`;
+      주의사항:
+      - 새로운 주제 언급은 항상 선택 단계로 처리 (confirmedTopic: false)
+      - 확정은 이전 제안된 주제에 대한 명확한 긍정 응답일 때만 가능`;
     
     this.logger.log(analysisPrompt);
     const analysisResponse = await this.openAIService.generateText(systemPrompt, analysisPrompt);
