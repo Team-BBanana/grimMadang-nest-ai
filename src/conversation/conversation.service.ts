@@ -1,6 +1,7 @@
 // 🔧 필요한 모듈들을 가져옴
 import { Injectable, Logger } from '@nestjs/common';
 import { OpenAIService } from '../openai/openai.service';
+import { GoogleSpeechService } from '../google/google-speech.service';
 import { WelcomeFlowRequestDto, WelcomeFlowResponseDto } from './dto/welcome-flow.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -17,7 +18,7 @@ export class ConversationService {
   constructor(
 
     private readonly openaiService: OpenAIService,
-
+    private readonly googleSpeechService: GoogleSpeechService,
     @InjectModel(Conversation.name)
     private conversationModel: Model<ConversationDocument>,
 
@@ -146,7 +147,7 @@ export class ConversationService {
       this.logger.log(`Processing first welcome with attendance for session: ${welcomeFlowDto.sessionId}`);
   
       // 📊 출석 데이터 존재 여부 확인
-      const hasAttendanceData = welcomeFlowDto.attendanceTotal !== null || welcomeFlowDto.attendanceStreak !== null;
+      const hasAttendanceData = welcomeFlowDto.attendanceTotal !== 'null' || welcomeFlowDto.attendanceStreak !== 'null';
   
       this.logger.debug(`Has attendance data: ${hasAttendanceData}`);
   
@@ -155,33 +156,53 @@ export class ConversationService {
   
       // 📝 프롬프트 생성
       let prompt = '';
-      if (hasAttendanceData) {
-  
-        prompt = `
-          ${previousConversations ? '\n이전 대화 내역:\n\n' + `${previousConversations}` + '\n\n' : ''}
+      
+
+      prompt = `
+        ${previousConversations ? '\n이전 대화 내역:\n\n' + `${previousConversations}` + '\n\n' : ''}
+        
+        사용자 정보:
+        - 이름: ${welcomeFlowDto.name}
+          중요: 이 대화의 유일한 목적은 그림 그리기입니다. 어떤 상황에서도 다른 주제로 전환하지 마세요.
+          사용자 이름을 포함하여 인사말을 건네주고, 그림 주제는 실생활에서 자주 접할 수 있고 그리기 쉬운 것으로 제안해 주세요.
+
+          사용자가 "다른 주제" 또는 "그리기 싫어"와 같은 말을 할 경우:
+          1. 그림 그리기의 중요성을 강조하세요.
+          2. 즉시 새롭고 매우 간단한 그림 주제를 제안하세요.
+          3. 그림 그리기 외의 주제(영화, 드라마, 여행, 취미 등)는 절대 언급하지 마세요.
+
+          답변 템플릿:
+          "이번 주제가 재미없게 느껴지시나요? 이번에는 [매우 간단한 주제]를 그려보는 건 어떨까요? 아주 쉽고 재미있을 거예요. 시작해볼까요?"
+
+          매우 간단한 그림 주제 예시:
+          - 바나나, 사과 같은 과일 
+          - 꽃 한 송이
+          - 해와 구름
+
+          모든 상황에서 그림 그리기로 대화를 유지하세요. 다른 주제로의 전환은 절대 허용되지 않습니다.
+          주제나 키워드 제안 시 그리기 어렵거나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
+
+          다음 규칙을 지켜주세요:
+          1. 사용자의 말에 2~3문장으로 반응해주세요 
+          2. 이모지를 사용하지 마세요 
           
-          사용자 정보:
-          - 이름: ${welcomeFlowDto.name}
-          ${welcomeFlowDto.attendanceTotal !== null ? `- 총 출석일: ${welcomeFlowDto.attendanceTotal}일` : ''}
-          ${welcomeFlowDto.attendanceStreak !== null ? `- 연속 출석일: ${welcomeFlowDto.attendanceStreak}일` : ''}
-  
-          위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
-          출석 기록이 있다면 칭찬하고, 오늘도 함께 즐거운 시간을 보내자고 격려해주세요.
-          출석 기록이 없다면, 처음 방문한 사용자에게 출석 기록에 대한 언급은 절대 하지 마세요.
-          이름을 자연스럽게 포함하여 대화하고 그림 주제를 제안하세요
+          예시:
+          "그렇군요. 그러면 [새로운 주제]를 그려보는 건 어떠세요?"
+
+          대화 내용에서 다음 정보들을 파악해주세요:
+          1. 사용자의 관심사 (예: 꽃, 풍경, 동물 등)
+          2. 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
+          3. 선호도 (그림 난이도, 스타일, 좋아하는 주제나 색상 등)
+          4. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
+        
+          대화에 포함된 정보를 답변 끝에 JSON 형식으로 추가해주세요, 추가하고 읽지는 마세요:
+          예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
+
+          사용자의 그림 그리기 의향을 판단해 태그를 추가하세요:
+          - 사용자가 그림 그리기에 긍정적이거나 관심을 보이면 "[DRAW:true]"
+          - 사용자가 그림 그리기에 부정적이거나 관심이 없으면 "[DRAW:false]"
         `;
-      } else {
-        prompt = `
-          사용자 정보:
-          - 이름: ${welcomeFlowDto.name}
-  
-          ${welcomeFlowDto.name}님께서 처음 방문하셨습니다.
-          처음 방문한 사용자에게 출석 기록에 대한 언급은 절대 하지 마세요.
-          친근하고 따뜻한 환영 인사를 해주세요.
-          이름을 자연스럽게 포함하여 대화하세요.
-          인사말을 종료하면서 자연스럽게 그림 주제를 물어보세요.
-        `;
-      }
+      
   
     this.logger.debug('Generated prompt:', prompt);
 
@@ -198,35 +219,45 @@ export class ConversationService {
       // const aiResponseWav = fs.readFileSync(wavFile);
       // this.logger.debug('Loaded local WAV file for response');
       // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      this.logger.debug('Generated empty buffer for audio response');
+      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      // this.logger.debug('Generated empty buffer for audio response');
 
+      // 🔊 AI 응답 생성 및 처리
+      try {
+        // 로컬 WAV 파일 읽기 대신 Google TTS 사용
+        const aiResponseWav = await this.googleSpeechService.textToSpeech(aiResponse);
 
-      // 💾 대화 내용 저장
-      await this.saveConversation(
-        welcomeFlowDto.sessionId,
-        welcomeFlowDto.name,
-        'first',
-        aiResponse,
-        true,
-        welcomeFlowDto.attendanceTotal,
-        welcomeFlowDto.attendanceStreak,
-        undefined, // interests 초기화
-        undefined, // wantedTopic 초기화
-        undefined, // preferences 초기화
-        undefined  // personalInfo 초기화
-      );
+        // 대화 저장
+        await this.saveConversation(
+          welcomeFlowDto.sessionId,
+          welcomeFlowDto.name,
+          'first',
+          aiResponse,
+          true,
+          welcomeFlowDto.attendanceTotal?.toString(),
+          welcomeFlowDto.attendanceStreak?.toString(),
+          undefined,
+          undefined,
+          undefined,
+          undefined
+        );
 
-      // ✅ 결과 반환
-      return {
-        aiResponseWelcomeWav: aiResponseWav, // 이미 압축된 base64 문자열
-        choice: false,
-      };
+        return {
+          aiResponseWelcomeWav: aiResponseWav,
+          choice: false
+        };
+      } catch (error) {
+        this.logger.error('Error in TTS or saving conversation:', error.message);
+        // TTS 실패 시 빈 버퍼 반환
+        return {
+          aiResponseWelcomeWav: Buffer.from(''),
+          choice: false
+        };
+      }
     } catch (error) {
       // ❌ 에러 처리
       this.logger.error(`Error in processFirstWelcomeWithAttendance: ${error.message}`, error.stack);
-      throw error;(''); // 빈 버퍼 반환
-      // this.logger.debug('Generated empt
+      throw error;
     }
   }
 
@@ -250,7 +281,8 @@ export class ConversationService {
 
       // 🎤 음성 데이터 처리
       if (Buffer.isBuffer(welcomeFlowDto.userRequestWelcomeWav)) {
-        userText = await this.openaiService.speechToText(welcomeFlowDto.userRequestWelcomeWav);
+        // userText = await this.openaiService.speechToText(welcomeFlowDto.userRequestWelcomeWav);
+        userText = await this.googleSpeechService.speechToText(welcomeFlowDto.userRequestWelcomeWav);
         this.logger.debug('Converted speech to text:', userText);
       } else {
         userText = welcomeFlowDto.userRequestWelcomeWav;
@@ -264,43 +296,29 @@ export class ConversationService {
       const prompt = `
         ${previousConversations ? '이전 대화 내역:\n' + previousConversations + '\n\n' : ''}
         사용자 정보:
-        - 이름: ${welcomeFlowDto.name} (이름을 기억해 대화를 이어가세요.)
+        - 이름: ${welcomeFlowDto.name} (해당 이름을 기억하여, 이름을 다시 물어보는 질문이 나오면 해당 이름을 다시 알려드리면서 대화를 이어가주세요.)
         
-        현재 사용자 발화: ${userText} (해당 발화가 답변의 핵심입니다.)
+        현재 사용자 발화: ${userText} (해당 발화에 대한 답변이 1순위입니다. 다른 정보들은 해당 질문에 대한 답변을 자연스럽게 하기 위함입니다.)
 
-        중요: 반드시 한국어로 응답해주세요. 
+        중요: 반드시 한국어로 응답해주세요. 영어는 절대 사용하지 마세요.
         
-        중요: 이 대화의 유일한 목적은 그림 그리기입니다. 어떤 상황에서도 다른 주제로 전환하지 마세요.
-
-        사용자가 "다른 주제" 또는 "그리기 싫어"와 같은 말을 할 경우:
-        1. 그림 그리기의 중요성을 강조하세요.
-        2. 즉시 새롭고 매우 간단한 그림 주제를 제안하세요.
-        3. 그림 그리기 외의 주제(영화, 드라마, 여행, 취미 등)는 절대 언급하지 마세요.
-
-        답변 템플릿:
-        "이번 주제가 재미없게 느껴지시나요? 이번에는 [매우 간단한 주제]를 그려보는 건 어떨까요? 아주 쉽고 재미있을 거예요. 시작해볼까요?"
-
-        매우 간단한 그림 주제 예시:
-        - 바나나, 사과 같은 과일 
-        - 꽃 한 송이
-        - 해와 구름
-
-        모든 상황에서 그림 그리기로 대화를 유지하세요. 다른 주제로의 전환은 절대 허용되지 않습니다.
-        주제나 키워드 제안 시 그리기 어렵거나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
-
-        대화 내용에서 다음 정보들을 파악해주세요:
+        위 대화 내역을 바탕으로 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
+        이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
+        그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
+   
+        또한, 대화 내용에서 다음 정보들을 파악해주세요:
         1. 사용자의 관심사 (예: 꽃, 풍경, 동물 등)
         2. 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
         3. 선호도 (그림 난이도, 스타일, 좋아하는 주제나 색상 등)
         4. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
-      
-        대화에 포함된 정보를 답변 끝에 JSON 형식으로 추가해주세요:
+        
+        파악된 정보는 답변 끝에 JSON 형식으로 추가해주세요:
         예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
         
-        사용자의 그림 그리기 의향을 판단해 태그에 추가하세요:
+        마지막으로, 사용자의 그림 그리기 의향도 판단해주세요:
         - 사용자가 그림 그리기에 긍정적이거나 관심을 보이면 답변 마지막에 "[DRAW:true]"를 추가해주세요.
         - 사용자가 그림 그리기에 부정적이거나 관심이 없으면 답변 마지막에 "[DRAW:false]"를 추가해주세요.
-        - 답변은 자연스럽고 대화의 흐름을 유지하며 [INFO]와 [DRAW] 태그는 마지막에만 포함해주세요.
+        - 답변은 자연스러워야 하며, [INFO]와 [DRAW] 태그는 맨 마지막에만 붙여주세요.
       `;
 
       this.logger.debug('Generated prompt:', prompt);
@@ -325,7 +343,8 @@ export class ConversationService {
       this.logger.debug('Clean Response:', cleanResponse);
       
       // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      const aiResponseWav = await this.googleSpeechService.textToSpeech(cleanResponse);
       // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
 
@@ -356,7 +375,5 @@ export class ConversationService {
       throw error;
     }
   }
-
-
 
 }

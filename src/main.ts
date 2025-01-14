@@ -21,10 +21,12 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api-docs', app, document);
 
-  // CORS 설정
+  // CORS 설정 업데이트
   app.enableCors({
-    origin: 'http://localhost:5173', // 특정 도메인만 허용
-    credentials: true, // 자격 증명 허용
+    origin: ['http://localhost:5173', 'http://localhost:3000'], // 프론트엔드 URL 추가
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+    allowedHeaders: 'Content-Type, Accept, Authorization',
   });
 
   await app.listen(process.env.PORT ?? 3000);

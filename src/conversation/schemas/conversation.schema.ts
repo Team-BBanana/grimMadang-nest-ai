@@ -25,7 +25,7 @@ export class Conversation {
   aiResponse: string;
 
   // 👋 첫 방문 여부 표시 - 기본값 false로 설정
-  @Prop({ required: true, default: false })
+  @Prop({ default: false })
   isFirstVisit: boolean;
   
   // 📅 총 출석 일수 기록 - 선택값
