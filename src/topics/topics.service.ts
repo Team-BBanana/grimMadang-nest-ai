@@ -220,10 +220,10 @@ export class TopicsService {
     this.logger.log(aiText);
 
     // TODO: 실 테스트용 AI 음성 버퍼 반환
-    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
+    const audioBuffer = await this.openAIService.textToSpeech(aiText);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     // 📝 응답 반환
     return {
@@ -245,10 +245,10 @@ export class TopicsService {
     const metadata = await this.handleTopicMetadata(selectedTopic);
     const aiResponse = `${selectedTopic}가 맞나요?`;
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -287,10 +287,10 @@ export class TopicsService {
     this.logger.debug('AI 응답 생성 완료:', aiResponse);
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -319,10 +319,10 @@ export class TopicsService {
     });
 
     // TODO: 테스트용 AI 음성 버퍼 반환
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
     
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,
@@ -350,10 +350,10 @@ export class TopicsService {
     });
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-      // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+      const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,
@@ -667,63 +667,63 @@ export class TopicsService {
     };
   }
 
-  /**
-   * 🔍 메타데이터 조회
-   */
-  private async checkTopicMetadata(topic: string): Promise<SpringMetadataResponse | null> {
-    try {
-      this.logger.debug('메타데이터 조회 시작');
-      const response = await fetch(`${process.env.SPRING_API_URL}/canvas/checkmetadata`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ topicName: topic })
-      });
+  // /**
+  //  * 🔍 메타데이터 조회
+  //  */
+  // private async checkTopicMetadata(topic: string): Promise<SpringMetadataResponse | null> {
+  //   try {
+  //     this.logger.debug('메타데이터 조회 시작');
+  //     const response = await fetch(`${process.env.SPRING_API_URL}/canvas/checkmetadata`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({ topicName: topic })
+  //     });
 
-      if (response.ok) {
-        const metadata = await response.json() as SpringMetadataResponse;
-        this.logger.debug('Found existing metadata:', metadata);
-        return metadata;
-      }
+  //     if (response.ok) {
+  //       const metadata = await response.json() as SpringMetadataResponse;
+  //       this.logger.debug('Found existing metadata:', metadata);
+  //       return metadata;
+  //     }
 
-      if (response.status === 500) {
-        this.logger.debug('No metadata found for topic:', topic);
-        return null;
-      }
+  //     if (response.status === 500) {
+  //       this.logger.debug('No metadata found for topic:', topic);
+  //       return null;
+  //     }
 
-      throw new Error(`Unexpected response: ${response.status} - ${response.statusText}`);
-    } catch (error) {
-      this.logger.error(`Error checking metadata: ${error.message}`, error.stack);
-      return null;
-    }
-  }
+  //     throw new Error(`Unexpected response: ${response.status} - ${response.statusText}`);
+  //   } catch (error) {
+  //     this.logger.error(`Error checking metadata: ${error.message}`, error.stack);
+  //     return null;
+  //   }
+  // }
 
-  /**
-   * 💾 메타데이터 저장
-   */
-  private async saveTopicMetadata(metadata: SpringMetadataResponse): Promise<SpringMetadataResponse | null> {
-    try {
-      const response = await fetch(`${process.env.SPRING_API_URL}/canvas/savemetadata`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(metadata)
-      });
+  // /**
+  //  * 💾 메타데이터 저장
+  //  */
+  // private async saveTopicMetadata(metadata: SpringMetadataResponse): Promise<SpringMetadataResponse | null> {
+  //   try {
+  //     const response = await fetch(`${process.env.SPRING_API_URL}/canvas/savemetadata`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify(metadata)
+  //     });
 
-      if (!response.ok) {
-        throw new Error(`Failed to save metadata: ${response.status} - ${response.statusText}`);
-      }
+  //     if (!response.ok) {
+  //       throw new Error(`Failed to save metadata: ${response.status} - ${response.statusText}`);
+  //     }
 
-      const savedData = await response.json() as SpringMetadataResponse;
-      this.logger.debug('Successfully saved metadata:', savedData);
-      return savedData;
-    } catch (error) {
-      this.logger.error(`Error saving metadata: ${error.message}`, error.stack);
-      return null;  
-    }
-  }
+  //     const savedData = await response.json() as SpringMetadataResponse;
+  //     this.logger.debug('Successfully saved metadata:', savedData);
+  //     return savedData;
+  //   } catch (error) {
+  //     this.logger.error(`Error saving metadata: ${error.message}`, error.stack);
+  //     return null;  
+  //   }
+  // }
 // 이거 나중에 지워주셈 주석
   /**
    * 🔄 메타데이터 처리
@@ -732,7 +732,7 @@ export class TopicsService {
     // 테스트를 위해 하드코딩된 메타데이터 반환
     return {
       topicName: topic,
-      imageUrl: 'https://oaidalleapiprodscus.blob.core.windows.net/private/org-VA11vTq5rYfo63AMCo370lYA/user-JeR40qlqTe9ZjKLkgf3BGbl1/img-vxsl0PojFefAONCCoaeRSwfc.png?st=2025-01-12T10%3A30%3A13Z&se=2025-01-12T12%3A30%3A13Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-01-12T00%3A43%3A20Z&ske=2025-01-13T00%3A43%3A20Z&sks=b&skv=2024-08-04&sig=LnDHnaEIKFKBiD%2BfDnnOI8LmQvETKqc4wWOaHAo80tY%3D',
+      imageUrl: 'https://bbanana.s3.ap-northeast-2.amazonaws.com/canvas-image-step-1-8880922c-a73d-4818-a183-092d8d4bd2f4-MmMv5EdN.png',
       description: `${topic}는 기본적인 형태를 잘 살리는 게 포인트예요. 한번 시작해볼까요?`
     };
 
