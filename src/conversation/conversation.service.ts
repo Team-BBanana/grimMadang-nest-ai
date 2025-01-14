@@ -310,8 +310,8 @@ export class ConversationService {
       this.logger.debug('Clean Response:', cleanResponse);
       
       // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
 
       // 💾 대화 내용 저장 (추출된 정보 포함)
