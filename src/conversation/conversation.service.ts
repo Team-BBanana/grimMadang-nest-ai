@@ -180,17 +180,17 @@ export class ConversationService {
 
       // 🔊 음성 변환
       // 대신 로컬 WAV 파일 읽기 
-      const fs = require('fs');
-      const path = require('path');
-      const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
-      const aiResponseWav = fs.readFileSync(wavFile);
-      this.logger.debug('Loaded local WAV file for response');
+      // const fs = require('fs');
+      // const path = require('path');
+      // const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
+      // const aiResponseWav = fs.readFileSync(wavFile);
+      // this.logger.debug('Loaded local WAV file for response');
 
       // const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
         
       // TODO: TTS 임시 비활성화 (비용 절감)
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      // this.logger.debug('Generated empty buffer for audio response');
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      this.logger.debug('Generated empty buffer for audio response');
 
 
       // 💾 대화 내용 저장
@@ -221,8 +221,47 @@ export class ConversationService {
     }
   }
 
+  // 사용자 발화 분석 함수 추가
+  private analyzeUserInput(userText: string): { 
+    wantedTopic: string,
+    isPositive: boolean 
+  } {
+    // "다른거"를 제외한 실제 주제만 매칭하도록 수정
+    const wantToDrawMatch = userText.match(/(?:(?!다른).)*?\s*그리고\s*싶어/);
+    let wantedTopic = '';
+    let isPositive = false;
 
- // 🌟 일반 대화 처리 메소드
+    if (wantToDrawMatch && !userText.includes('다른')) {
+      // "그리고 싶어" 앞의 실제 주제만 추출
+      wantedTopic = wantToDrawMatch[0]
+        .replace(/\s*그리고\s*싶어$/, '')  // "그리고 싶어" 제거
+        .trim();
+      isPositive = true;
+    }
+
+    // "다른거"가 포함된 경우는 무조건 부정적으로 처리
+    if (userText.includes('다른')) {
+      isPositive = false;
+      wantedTopic = '';
+    }
+
+    return {
+      wantedTopic,
+      isPositive
+    };
+  }
+
+  // 이전 대화에서 제안된 주제들을 추출하는 함수 추가
+  private extractPreviousTopics(conversations: string): string[] {
+    const topics = new Set<string>();
+    const matches = conversations.matchAll(/그려보는 건 어떨까요\? ([^을를\s]+)[을를]/g);
+    for (const match of matches) {
+      topics.add(match[1]);
+    }
+    return Array.from(topics);
+  }
+
+  // 🌟 일반 대화 처리 메소드
   // 메인 메소드2
   async processWelcomeFlow(
     welcomeFlowDto: WelcomeFlowRequestDto,
@@ -250,40 +289,31 @@ export class ConversationService {
 
       // 💬 이전 대화 내역 가져오기
       const previousConversations = await this.getPreviousConversations(welcomeFlowDto.sessionId);
+      const previousTopics = this.extractPreviousTopics(previousConversations);
+      const userInput = this.analyzeUserInput(userText);
 
-      // 📝 프롬프트 생성
       const prompt = `
-      당신은 노인의 그림 그리기를 도와주는 AI 어시스턴트입니다.
-      아래의 내용들을 모두 참고하여 대화를 이어가주세요. JSON 태그는 절대로 읽지 않기
-
-      ${previousConversations ? '이전 대화 내역:\n' + previousConversations + '\n\n' : ''}
+        ${previousConversations ? '이전 대화 내역:\n' + previousConversations + '\n\n' : ''}
         사용자 정보:
         - 이름: ${welcomeFlowDto.name}
         - 현재 사용자 발화: ${userText}
 
-        중요 규칙:
-        1. 반드시 한국어로만 응답해주세요
-        2. 총 발화는 50자 이내로 해주세요
+        ⚠️ 절대 규칙:
+        1. 총 발화는 30자 이내로 해주세요
+        2. 반드시 한국어로만 응답해주세요
         3. 이모지는 사용하지 마세요
-        4. 시스템 태그나 JSON은 절대로 읽지 마세요
-        5. 사용자가 원하는 주제를 존중하세요 (사용자가 특정 주제를 언급했다면 다른 주제를 제안하지 마세요)
-        6. 사용자가 주제를 거부할 때만 새로운 주제를 제안하세요
-        
-        이전 대화 내용을 참고하여 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
-        그림 그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
+        4. 사용자가 키워드에 긍정적인 응답을 한 경우에 다른 주제를 언급하지 마세요
+        5. 사용자가 키워드에 부정적인 응답을 한 경우, 이전에 제안했던 주제(${previousTopics.join(', ')})는 다시 제안하지 마세요
 
-        사용자가 "다른 주제는 없냐"를 원하거나 또는 "그거 그리기 싫어"와 같은 말을 할 경우:
-        답변 템플릿: "다른 그림을 그리고 싶으신가요? 이번에는 [간단한 주제]를 그려보는 건 어떨까요? 아주 쉽고 재미있을 거예요. 시작해볼까요?"
-        간단한 그림 주제 예시:
-        - 바나나, 사과 같은 과일 
-        - 장미꽃 한 송이
-        - 해와 구름
-   
-        대화하면서 파악된 정보는 답변 끝에 JSON 형식으로 추가 (절대 읽지 않기):
-        예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
-        
-        마지막으로, 사용자의 그림 그리기 의향도 판단:
-        [DRAW:true/false]
+        답변 형식:
+        ${userInput.isPositive 
+          ? `"${userInput.wantedTopic}를 좋아하시는군요, 좋습니다! 함께 ${userInput.wantedTopic}를 그려보아요!"` 
+          : '"다른 그림을 그려보고 싶으신가요? [새로운 주제]를 그려보는 건 어떨까요?"'}
+
+        <시스템 태그>
+        [INFO:{"wantedTopic":"${userInput.wantedTopic}"}]
+        [DRAW:${userInput.isPositive}]
+        </시스템 태그>
       `;
 
       this.logger.debug('Generated prompt:', prompt);
@@ -314,7 +344,7 @@ export class ConversationService {
       // TODO: TTS 임시 비활성화 (비용 절감)
       // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
       const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      this.logger.debug('Generated audio response');
+      // this.logger.debug('Generated audio response');
 
       // 💾 대화 내용 저장 (추출된 정보 포함)
       await this.saveConversation(
