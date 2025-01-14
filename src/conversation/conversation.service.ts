@@ -167,7 +167,8 @@ export class ConversationService {
         인사말을 종료하면서 자연스럽게 그림 키워드를 한두개 제안해 주세요.
         그림 키워드는 실생활에서 자주 접할 수 있거나 그리기 쉬운 것들로 해주세요:
         예시: 고양이, 의자, 사과 등
-        총 발화는 50자 이내로 해주세요.
+
+        중요: 총 발화는 50자 이내로 해주세요.
       `;
 
     this.logger.debug('Generated prompt:', prompt);
@@ -179,13 +180,13 @@ export class ConversationService {
 
       // 🔊 음성 변환
       // 대신 로컬 WAV 파일 읽기 
-      // const fs = require('fs');
-      // const path = require('path');
-      // const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
-      // const aiResponseWav = fs.readFileSync(wavFile);
-      // this.logger.debug('Loaded local WAV file for response');
+      const fs = require('fs');
+      const path = require('path');
+      const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
+      const aiResponseWav = fs.readFileSync(wavFile);
+      this.logger.debug('Loaded local WAV file for response');
 
-      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
+      // const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
         
       // TODO: TTS 임시 비활성화 (비용 절감)
       // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
@@ -252,45 +253,37 @@ export class ConversationService {
 
       // 📝 프롬프트 생성
       const prompt = `
-        ${previousConversations ? '이전 대화 내역:\n' + previousConversations + '\n\n' : ''}
+      당신은 노인의 그림 그리기를 도와주는 AI 어시스턴트입니다.
+      아래의 내용들을 모두 참고하여 대화를 이어가주세요. JSON 태그는 절대로 읽지 않기
+
+      ${previousConversations ? '이전 대화 내역:\n' + previousConversations + '\n\n' : ''}
         사용자 정보:
-        - 이름: ${welcomeFlowDto.name} (해당 이름을 기억하여, 이름을 다시 물어보는 질문이 나오면 해당 이름을 다시 알려드리면서 대화를 이어가주세요.)
+        - 이름: ${welcomeFlowDto.name}
+        - 현재 사용자 발화: ${userText}
+
+        중요 규칙:
+        1. 반드시 한국어로만 응답해주세요
+        2. 총 발화는 50자 이내로 해주세요
+        3. 이모지는 사용하지 마세요
+        4. 시스템 태그나 JSON은 절대로 읽지 마세요
+        5. 사용자가 원하는 주제를 존중하세요 (사용자가 특정 주제를 언급했다면 다른 주제를 제안하지 마세요)
+        6. 사용자가 주제를 거부할 때만 새로운 주제를 제안하세요
         
-        현재 사용자 발화: ${userText} (해당 발화에 대한 답변이 1순위입니다. 다른 정보들은 해당 질문에 대한 답변을 자연스럽게 하기 위함입니다.)
+        이전 대화 내용을 참고하여 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
+        그림 그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
 
-        중요: 반드시 한국어로 응답해주세요. 영어는 절대 사용하지 마세요.
-        총 발화는 50자 이내로 해주세요.
-        
-        위 대화 내역을 바탕으로 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
-        이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
-        그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
-
-        사용자가 "다른 주제"를 원하거나 또는 "그거 그리기 싫어"와 같은 말을 할 경우:
-        1. 상대방의 말에 대한 답변을 자연스럽게 하세요.
-        2. 즉시 새롭고 매우 간단한 그림 주제를 제안하세요.
-        3. 그림 그리기 외의 주제(영화, 드라마, 여행, 취미 등)는 절대 언급하지 마세요.
-
-        답변 템플릿:
-        "다른 그림을 그리고 싶으신가요? 이번에는 [간단한 주제]를 그려보는 건 어떨까요? 아주 쉽고 재미있을 거예요. 시작해볼까요?"
-
+        사용자가 "다른 주제는 없냐"를 원하거나 또는 "그거 그리기 싫어"와 같은 말을 할 경우:
+        답변 템플릿: "다른 그림을 그리고 싶으신가요? 이번에는 [간단한 주제]를 그려보는 건 어떨까요? 아주 쉽고 재미있을 거예요. 시작해볼까요?"
         간단한 그림 주제 예시:
         - 바나나, 사과 같은 과일 
         - 장미꽃 한 송이
         - 해와 구름
    
-        또한, 대화 내용에서 다음 정보들을 파악해주세요:
-        1. 사용자의 관심사 (예: 꽃, 풍경, 동물 등)
-        2. 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
-        3. 선호도 (그림 난이도, 스타일, 좋아하는 주제나 색상 등)
-        4. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
-        
-        파악된 정보는 답변 끝에 JSON 형식으로 추가해주세요:
+        대화하면서 파악된 정보는 답변 끝에 JSON 형식으로 추가 (절대 읽지 않기):
         예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
         
-        마지막으로, 사용자의 그림 그리기 의향도 판단해주세요:
-        - 사용자가 그림 그리기에 긍정적이거나 관심을 보이면 답변 마지막에 "[DRAW:true]"를 추가해주세요.
-        - 사용자가 그림 그리기에 부정적이거나 관심이 없으면 답변 마지막에 "[DRAW:false]"를 추가해주세요.
-        - 답변은 자연스러워야 하며, [INFO]와 [DRAW] 태그는 맨 마지막에만 붙여주세요.
+        마지막으로, 사용자의 그림 그리기 의향도 판단:
+        [DRAW:true/false]
       `;
 
       this.logger.debug('Generated prompt:', prompt);
@@ -319,8 +312,8 @@ export class ConversationService {
         throw new Error('Clean response is empty');
       }
       // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
 
       // 💾 대화 내용 저장 (추출된 정보 포함)
