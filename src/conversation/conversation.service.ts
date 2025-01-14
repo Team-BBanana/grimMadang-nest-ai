@@ -79,114 +79,109 @@ export class ConversationService {
   }
 
 
-  // 💾 대화 내용을 저장하는 private 메소드
-  private async saveConversation(
-    sessionId: string, // 세션 ID
-    name: string, // 사용자 이름
-    userText: string, // 사용자가 입력한 텍스트
-    aiResponse: string, // AI의 응답 텍스트
-    isFirstVisit: boolean = false, // 첫 방문 여부
-    attendanceTotal?: string, // 총 출석일
-    attendanceStreak?: string, // 연속 출석일
-    interests?: string[], // 사용자의 관심사
-    wantedTopic?: string, // 사용자가 원하는 구체적인 키워드
-    preferences?: { // 사용자의 선호도
-      difficulty?: string; // 난이도
-      style?: string; // 스타일
-      subjects?: string[]; // 주제
-      colors?: string[]; // 색상
-    },
-    personalInfo?: { // 사용자의 개인정보
-      mood?: string; // 현재 기분
-      physicalCondition?: string; // 신체 상태
-      experience?: string; // 그림 그리기 경험
-    },
-  ): Promise<void> { 
-    this.logger.debug(`Saving conversation for session: ${sessionId}, name: ${name}`);
-
-    // 🔢 대화 순서 번호 계산
-    const lastConversation = await this.conversationModel
-      .findOne({ sessionId })
-      .sort({ conversationOrder: -1 })
-      .exec();
-
-    const conversationOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
-    this.logger.debug(`Conversation order: ${conversationOrder}`);
-
-
-    // 💾 대화 내용 저장 시도
-    try {
-      await this.conversationModel.create({
-        sessionId,
-        name,
-        userText,
-        aiResponse,
-        isFirstVisit,
-        attendanceTotal,
-        attendanceStreak,
-        conversationOrder,
-        interests,
-        wantedTopic,
-        preferences,
-        personalInfo,
-      });
-      this.logger.debug('Conversation saved successfully');
-    } catch (error) {
-      // ❌ 에러 발생 시 로깅 및 에러 전파
-      this.logger.error(`Error saving conversation: ${error.message}`);
-      throw error;
+    // 💾 대화 내용을 저장하는 private 메소드
+    private async saveConversation(
+      sessionId: string, // 세션 ID
+      name: string, // 사용자 이름
+      userText: string, // 사용자가 입력한 텍스트
+      aiResponse: string, // AI의 응답 텍스트
+      isFirstVisit: boolean = false, // 첫 방문 여부
+      attendanceTotal?: string, // 총 출석일
+      attendanceStreak?: string, // 연속 출석일
+      interests?: string[], // 사용자의 관심사
+      wantedTopic?: string, // 사용자가 원하는 구체적인 키워드
+      preferences?: { // 사용자의 선호도
+        difficulty?: string; // 난이도
+        style?: string; // 스타일
+        subjects?: string[]; // 주제
+        colors?: string[]; // 색상
+      },
+      personalInfo?: { // 사용자의 개인정보
+        mood?: string; // 현재 기분
+        physicalCondition?: string; // 신체 상태
+        experience?: string; // 그림 그리기 경험
+      },
+    ): Promise<void> { 
+      this.logger.debug(`Saving conversation for session: ${sessionId}, name: ${name}`);
+  
+      // 🔢 대화 순서 번호 계산
+      const lastConversation = await this.conversationModel
+        .findOne({ sessionId })
+        .sort({ conversationOrder: -1 })
+        .exec();
+  
+      const conversationOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
+      this.logger.debug(`Conversation order: ${conversationOrder}`);
+  
+  
+      // 💾 대화 내용 저장 시도
+      try {
+        await this.conversationModel.create({
+          sessionId,
+          name,
+          userText,
+          aiResponse,
+          isFirstVisit,
+          attendanceTotal,
+          attendanceStreak,
+          conversationOrder,
+          interests,
+          wantedTopic,
+          preferences,
+          personalInfo,
+        });
+        this.logger.debug('Conversation saved successfully');
+      } catch (error) {
+        // ❌ 에러 발생 시 로깅 및 에러 전파
+        this.logger.error(`Error saving conversation: ${error.message}`);
+        throw error;
+      }
     }
-  }
-
-
-  // 👋 첫 방문자 환영 메시지 처리 메소드
-  // 메인 메소드1 
-  async processFirstWelcomeWithAttendance(welcomeFlowDto: WelcomeFlowRequestDto): Promise<WelcomeFlowResponseDto> {
-    // 📝 로그 출력
-    this.logger.log(`Processing first welcome with attendance for session: ${welcomeFlowDto.sessionId}`);
-
-    // 📊 출석 데이터 존재 여부 확인
-    const hasAttendanceData = welcomeFlowDto.attendanceTotal !== 'null' || welcomeFlowDto.attendanceStreak !== 'null';
-
-    this.logger.debug(`Has attendance data: ${hasAttendanceData}`);
-
-    // 💬 이전 대화 내역 가져오기
-    const previousConversations = await this.getPreviousConversations(welcomeFlowDto.sessionId);
-
-    // 📝 프롬프트 생성
-    let prompt = '';
-    if (hasAttendanceData) {
-      const greetings = [
-        `${welcomeFlowDto.name}님, 반가워요! 오늘도 함께해서 기뻐요.`,
-        `${welcomeFlowDto.name}님, 좋은 하루 되세요!`,
-        `${welcomeFlowDto.name}님, 환영합니다! 멋진 하루 보내세요.`,
-        `${welcomeFlowDto.name}님, 또 만나 뵙게 되어 반가워요!`
-      ];
-      
-      const attendanceInfo = hasAttendanceData
-        ? `총 출석 ${welcomeFlowDto.attendanceTotal}일, 연속 ${welcomeFlowDto.attendanceStreak}일 기록이 있어요!`
-        : '';
-      
-      const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-      
-      const prompt = `
-        ${randomGreeting} ${attendanceInfo ? attendanceInfo : ''}
-        ${previousConversations ? `최근 대화 내용: ${previousConversations}` : ''}
-      `;
-      
-    } else {
-      prompt = `
-        사용자 정보:
-        - 이름: ${welcomeFlowDto.name}
-
-        ${welcomeFlowDto.name}님께서 처음 방문하셨습니다.
-        출석 기록이 없다면, 처음 방문한 사용자에게 출석 기록에 대한 언급은 하지 마세요
-        친근하고 따뜻한 환영 인사를 해주세요.
-        이름을 자연스럽게 포함하여 대화하세요.
-        너무 길지 않게 대화하세요.
-      `;
-    }
-
+  
+  
+    // 👋 첫 방문자 환영 메시지 처리 메소드
+    // 메인 메소드1 
+    async processFirstWelcomeWithAttendance(welcomeFlowDto: WelcomeFlowRequestDto): Promise<WelcomeFlowResponseDto> {
+      // 📝 로그 출력
+      this.logger.log(`Processing first welcome with attendance for session: ${welcomeFlowDto.sessionId}`);
+  
+      // 📊 출석 데이터 존재 여부 확인
+      const hasAttendanceData = welcomeFlowDto.attendanceTotal !== 'null' || welcomeFlowDto.attendanceStreak !== 'null';
+  
+      this.logger.debug(`Has attendance data: ${hasAttendanceData}`);
+  
+      // 💬 이전 대화 내역 가져오기
+      const previousConversations = await this.getPreviousConversations(welcomeFlowDto.sessionId);
+  
+      // 📝 프롬프트 생성
+      let prompt = '';
+      if (hasAttendanceData) {
+  
+        prompt = `
+          ${previousConversations ? '\n이전 대화 내역:\n\n' + `${previousConversations}` + '\n\n' : ''}
+          
+          사용자 정보:
+          - 이름: ${welcomeFlowDto.name}
+          ${welcomeFlowDto.attendanceTotal !== 'null' ? `- 총 출석일: ${welcomeFlowDto.attendanceTotal}일` : ''}
+          ${welcomeFlowDto.attendanceStreak !== 'null' ? `- 연속 출석일: ${welcomeFlowDto.attendanceStreak}일` : ''}
+  
+          위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
+          출석 기록이 있다면 칭찬하고, 오늘도 함께 즐거운 시간을 보내자고 격려해주세요.
+          이름을 자연스럽게 포함하여 대화하세요. 
+          인사말을 종료하면서 자연스럽게 그림 주제를 물어보세요.
+        `;
+      } else {
+        prompt = `
+          사용자 정보:
+          - 이름: ${welcomeFlowDto.name}
+  
+          ${welcomeFlowDto.name}님께서 처음 방문하셨습니다.
+          친근하고 따뜻한 환영 인사를 해주세요.
+          이름을 자연스럽게 포함하여 대화하세요.
+          인사말을 종료하면서 자연스럽게 그림 주제를 물어보세요.
+        `;
+      }
+  
     this.logger.debug('Generated prompt:', prompt);
 
     // 🤖 AI 응답 생성 및 처리
@@ -315,8 +310,8 @@ export class ConversationService {
       this.logger.debug('Clean Response:', cleanResponse);
       
       // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
 
       // 💾 대화 내용 저장 (추출된 정보 포함)
