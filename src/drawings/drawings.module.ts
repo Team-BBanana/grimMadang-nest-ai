@@ -1,12 +1,18 @@
 import { Module } from '@nestjs/common';
-import { DrawingsController } from './drawings.controller';
+import { MongooseModule } from '@nestjs/mongoose';
 import { DrawingsService } from './drawings.service';
+import { DrawingsController } from './drawings.controller';
 import { OpenAIModule } from '../openai/openai.module';
+import { DrawingGuide, DrawingGuideSchema } from '../topics/schemas/drawing-guide.schema';
 
 @Module({
-  imports: [OpenAIModule],
+  imports: [
+    MongooseModule.forFeature([
+      { name: DrawingGuide.name, schema: DrawingGuideSchema }
+    ]),
+    OpenAIModule
+  ],
   controllers: [DrawingsController],
-  providers: [DrawingsService],
-  exports: [DrawingsService]
+  providers: [DrawingsService]
 })
 export class DrawingsModule {} 

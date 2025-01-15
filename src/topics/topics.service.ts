@@ -4,8 +4,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
 // 📝 스키마와 DTO 타입 임포트
-// import { Topic, TopicDocument } from './schemas/topic.schema';
-import { ExploreTopicsRequestDto, ExploreTopicsResponseDto, TopicImageDescriptionResponseDto } from './dto/explore.dto';
+import { ExploreTopicsRequestDto, ExploreTopicsResponseDto, TopicImageMetadataResponseDto } from './dto/explore.dto';
+import { TopicImage, TopicImageDocument } from './schemas/topic-image.schema';
 
 // 🤖 OpenAI 서비스 임포트
 import { OpenAIService } from '../openai/openai.service';
@@ -13,18 +13,8 @@ import { OpenAIService } from '../openai/openai.service';
 // 💬 대화 스키마 임포트
 import { ConversationDocument } from '../conversation/schemas/conversation.schema';
 
-// 🌐 HTTP 요청을 위한 fetch 임포트
-import fetch from 'node-fetch';
-
 // ☁️ AWS S3 서비스 임포트
 import { S3Service } from '../aws/s3.service';
-
-// 📊 Spring API 응답 타입 정의
-interface SpringMetadataResponse {
-  topicName: string;    // 주제 이름
-  imageUrl: string;     // 이미지 URL
-  description: string;  // 주제 설명
-}
 
 // 🎯 주제 추천 서비스 클래스 정의
 @Injectable()
@@ -44,8 +34,8 @@ export class TopicsService {
 
   // 🔧 서비스 생성자 - 필요한 모델과 서비스 주입
   constructor(
-    // @InjectModel(Topic.name) private topicModel: Model<TopicDocument>,
     @InjectModel('Conversation') private conversationModel: Model<ConversationDocument>,
+    @InjectModel(TopicImage.name) private topicImageModel: Model<TopicImageDocument>,
     private readonly openAIService: OpenAIService,
     private readonly s3Service: S3Service
   ) {}
@@ -244,6 +234,7 @@ export class TopicsService {
   ): Promise<ExploreTopicsResponseDto> {
     const metadata = await this.handleTopicMetadata(selectedTopic);
     const aiResponse = `${selectedTopic}가 맞나요?`;
+    
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
     const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
@@ -624,29 +615,40 @@ export class TopicsService {
 
   // 🎨 주제 메타데이터 관련 함수들
   /**
+  // 🎨 주제 메타데이터 관련 함수들
+  /**
    * 🎨 그리기 가이드라인 생성
    */
-  private async generateDrawingGuidelines(
-    topic: string, 
-    userPreferences: any = null
-  ): Promise<{ guidelines: string; imageUrl: string }> {
+  private async generateGuidelines(imageUrl: string): Promise<string> {
     const guidelinePrompt = `
-      주제: ${topic}
-      ${userPreferences ? `사용자 선호도: ${JSON.stringify(userPreferences)}` : ''}
+      참고 이미지: ${imageUrl}
 
-      위 주제에 대한 그림 그리기 가이드라인을 생성해주세요.
-      다음 내용을 포함해야 합니다:
-      1. 기본 형태와 구도
-      2. 주요 특징과 세부 사항
-      3. 색상 추천
-      4. 단계별 그리기 방법
-      5. 초보자를 위한 팁
-
-      자연스러운 대화체로 설명해주세요.
+      위 이미지를 보고 초보자도 쉽게 따라 그릴 수 있는 단계별 가이드라인을 JSON 형식으로 생성해주세요.
+      
+      중요한 규칙:
+      1. 반드시 7단계로 구성해주세요.
+      2. 각 단계는 다음 형식을 따라야 합니다:
+        {
+          "단계": number,
+          "타이틀": string,
+          "지시문장": string
+        }
+      3. 타이틀은 해당 단계에서 할 작업을 간단히 설명
+      4. 지시문장은 친근한 어투로 20단어 내외로 작성
+      5. 단계는 기본 형태 잡기부터 시작해서 세부 묘사, 색칠하기 순으로 구성
+      6. 마지막 단계는 항상 완성작 감상과 칭찬으로 마무리
+      
+      응답은 반드시 JSON 배열 형식이어야 하며, 다른 텍스트는 포함하지 마세요.
     `;
 
-    const guidelines = await this.openAIService.generateText(guidelinePrompt);
+    const guidelineJson = await this.openAIService.generateText(guidelinePrompt);
+    return guidelineJson;
+  }
 
+  /**
+   * 🎨 주제 이미지 생성
+   */
+  private async generateTopicImage(topic: string): Promise<string> {
     const imagePrompt = `
       주제: ${topic}
       스타일: 간단하고 명확한 선화 스타일, 초보자도 따라 그리기 쉬운 기본적인 형태
@@ -659,102 +661,92 @@ export class TopicsService {
 
     const dallEImageUrl = await this.openAIService.generateImage(imagePrompt);
     const key = `topics/${topic}/${Date.now()}.png`;
-    const s3ImageUrl = await this.s3Service.uploadImageFromUrl(dallEImageUrl, key);
-
-    return {
-      guidelines,
-      imageUrl: s3ImageUrl
-    };
+    return await this.s3Service.uploadImageFromUrl(dallEImageUrl, key);
   }
 
-  // /**
-  //  * 🔍 메타데이터 조회
-  //  */
-  // private async checkTopicMetadata(topic: string): Promise<SpringMetadataResponse | null> {
-  //   try {
-  //     this.logger.debug('메타데이터 조회 시작');
-  //     const response = await fetch(`${process.env.SPRING_API_URL}/canvas/checkmetadata`, {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({ topicName: topic })
-  //     });
+  /**
+   * 🔍 메타데이터 조회
+   */
+  private async checkTopicMetadata(topic: string): Promise<{ imageUrl: string } | null> {
+    try {
+      this.logger.debug('메타데이터 조회 시작');
+      const existingMetadata = await this.topicImageModel.findOne({ topic }).exec();
+      
+      if (existingMetadata) {
+        this.logger.debug('Found existing metadata:', existingMetadata);
+        return {
+          imageUrl: existingMetadata.imageUrl
+        };
+      }
 
-  //     if (response.ok) {
-  //       const metadata = await response.json() as SpringMetadataResponse;
-  //       this.logger.debug('Found existing metadata:', metadata);
-  //       return metadata;
-  //     }
+      this.logger.debug('No metadata found for topic:', topic);
+      return null;
+    } catch (error) {
+      this.logger.error(`Error checking metadata: ${error.message}`, error.stack);
+      return null;
+    }
+  }
 
-  //     if (response.status === 500) {
-  //       this.logger.debug('No metadata found for topic:', topic);
-  //       return null;
-  //     }
+  /**
+   * 💾 메타데이터 저장
+   */
+  private async saveTopicMetadata(topic: string, imageUrl: string): Promise<{ imageUrl: string } | null> {
+    try {
+      const metadata = await this.topicImageModel.create({
+        topic,
+        imageUrl
+      });
 
-  //     throw new Error(`Unexpected response: ${response.status} - ${response.statusText}`);
-  //   } catch (error) {
-  //     this.logger.error(`Error checking metadata: ${error.message}`, error.stack);
-  //     return null;
-  //   }
-  // }
+      this.logger.debug('Successfully saved metadata:', metadata);
+      return {
+        imageUrl: metadata.imageUrl
+      };
+    } catch (error) {
+      this.logger.error(`Error saving metadata: ${error.message}`, error.stack);
+      return null;  
+    }
+  }
 
-  // /**
-  //  * 💾 메타데이터 저장
-  //  */
-  // private async saveTopicMetadata(metadata: SpringMetadataResponse): Promise<SpringMetadataResponse | null> {
-  //   try {
-  //     const response = await fetch(`${process.env.SPRING_API_URL}/canvas/savemetadata`, {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify(metadata)
-  //     });
-
-  //     if (!response.ok) {
-  //       throw new Error(`Failed to save metadata: ${response.status} - ${response.statusText}`);
-  //     }
-
-  //     const savedData = await response.json() as SpringMetadataResponse;
-  //     this.logger.debug('Successfully saved metadata:', savedData);
-  //     return savedData;
-  //   } catch (error) {
-  //     this.logger.error(`Error saving metadata: ${error.message}`, error.stack);
-  //     return null;  
-  //   }
-  // }
-// 이거 나중에 지워주셈 주석
   /**
    * 🔄 메타데이터 처리
    */
-  private async handleTopicMetadata(topic: string): Promise<SpringMetadataResponse | null> {
+  private async handleTopicMetadata(topic: string): Promise<{ imageUrl: string; guidelines: string; topic: string } | null> {
     // 테스트를 위해 하드코딩된 메타데이터 반환
-    return {
-      topicName: topic,
-      imageUrl: 'https://bbanana.s3.ap-northeast-2.amazonaws.com/canvas-image-step-1-8880922c-a73d-4818-a183-092d8d4bd2f4-MmMv5EdN.png',
-      description: `${topic}는 기본적인 형태를 잘 살리는 게 포인트예요. 한번 시작해볼까요?`
-    };
+    // return {
+    //   topicName: topic,
+    //   imageUrl: 'https://bbanana.s3.ap-northeast-2.amazonaws.com/canvas-image-step-1-8880922c-a73d-4818-a183-092d8d4bd2f4-MmMv5EdN.png',
+    //   description: `${topic}는 기본적인 형태를 잘 살리는 게 포인트예요. 한번 시작해볼까요?`
+    // };
 
-    /* 기존 메타데이터 처리 로직
     const existingMetadata = await this.checkTopicMetadata(topic);
     if (existingMetadata) {
-      return existingMetadata;
+      const guidelines = await this.generateGuidelines(existingMetadata.imageUrl);
+      const response = new TopicImageMetadataResponseDto();
+      response.imageUrl = existingMetadata.imageUrl;
+      response.guidelines = guidelines;
+      response.topic = topic;
+      return response;
     }
 
     this.logger.log('메타데이터 생성 시작');
-    // const { guidelines, imageUrl } = await this.generateDrawingGuidelines(topic);
-    const guidelines = '이거 맞디~';
-    const imageUrl = 'https://oaidalleapiprodscus.blob.core.windows.net/private/org-VA11vTq5rYfo63AMCo370lYA/user-JeR40qlqTe9ZjKLkgf3BGbl1/img-vxsl0PojFefAONCCoaeRSwfc.png?st=2025-01-12T10%3A30%3A13Z&se=2025-01-12T12%3A30%3A13Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-01-12T00%3A43%3A20Z&ske=2025-01-13T00%3A43%3A20Z&sks=b&skv=2024-08-04&sig=LnDHnaEIKFKBiD%2BfDnnOI8LmQvETKqc4wWOaHAo80tY%3D';
     
-    const newMetadata = {
-      topicName: topic,
-      imageUrl: imageUrl,
-      description: guidelines
-    };
+    // 이미지 먼저 생성
+    const imageUrl = await this.generateTopicImage(topic);
+    
+    // 이미지 저장
+    const savedMetadata = await this.saveTopicMetadata(topic, imageUrl);
+    if (!savedMetadata) {
+      return null;
+    }
 
-    return await this.saveTopicMetadata(newMetadata);
-    */
+    // 저장된 이미지 기반으로 가이드라인 생성
+    const guidelines = await this.generateGuidelines(savedMetadata.imageUrl);
+    
+    const response = new TopicImageMetadataResponseDto();
+    response.imageUrl = savedMetadata.imageUrl;
+    response.guidelines = guidelines;
+    response.topic = topic;
+    return response;
   }
 
 } 

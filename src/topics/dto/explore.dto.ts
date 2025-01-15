@@ -65,6 +65,12 @@ export class ExploreTopicsRequestDto {
 }
 
 // 🎨 주제 추천 응답 DTO
+export class TopicImageMetadataResponseDto {
+  imageUrl: string;
+  guidelines: string;
+  topic: string;
+}
+
 export class ExploreTopicsResponseDto {
   @ApiProperty({
     description: '추천된 주제 목록 또는 선택된 주제 (배열: 추천 단계, 문자열: 선택 완료)',
@@ -94,9 +100,9 @@ export class ExploreTopicsResponseDto {
   @ApiProperty({
     description: '선택된 주제에 대한 메타데이터 (이미지 URL, 설명 등)',
     required: false,
-    type: TopicImageDescriptionResponseDto
+    type: TopicImageMetadataResponseDto
   })
-  metadata?: TopicImageDescriptionResponseDto;
+  metadata?: TopicImageMetadataResponseDto;
 
   @ApiProperty({ description: 'AI 응답의 원본 텍스트', required: false })
   originalText?: string;

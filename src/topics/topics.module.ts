@@ -1,17 +1,19 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { TopicsController } from './topics.controller';
 import { TopicsService } from './topics.service';
-// import { Topic, TopicSchema } from './schemas/topic.schema';
+import { TopicsController } from './topics.controller';
 import { OpenAIModule } from '../openai/openai.module';
-import { ConversationSchema } from '../conversation/schemas/conversation.schema';
 import { AwsModule } from '../aws/aws.module';
+import { Conversation, ConversationSchema } from '../conversation/schemas/conversation.schema';
+import { TopicImage, TopicImageSchema } from './schemas/topic-image.schema';
+import { DrawingGuide, DrawingGuideSchema } from './schemas/drawing-guide.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      // { name: Topic.name, schema: TopicSchema },
-      { name: 'Conversation', schema: ConversationSchema }
+      { name: Conversation.name, schema: ConversationSchema },
+      { name: TopicImage.name, schema: TopicImageSchema },
+      { name: DrawingGuide.name, schema: DrawingGuideSchema }
     ]),
     OpenAIModule,
     AwsModule
