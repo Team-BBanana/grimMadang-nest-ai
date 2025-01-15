@@ -142,7 +142,7 @@ export class DrawingsService {
          - 기준 이미지와 비교하여 개선이 필요한 부분 명시
 
       2. 점수 산정 (100점 만점):
-         - 현재 단계 지시사항 달성도: 50점
+         - 현재 단계 지시사항 달성도: ${this.PASS_SCORE}점
           • "${currentStepGuide.instruction}"에 명시된 요구사항 기준
           • 지시사항의 각 요소별로 기준 이미지와 비교하여 평가
 
