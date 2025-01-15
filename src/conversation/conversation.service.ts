@@ -41,10 +41,16 @@ export class ConversationService {
   } {
     const infoMatch = aiResponse.match(/\[INFO:({.*?})\]/);
     let userInfo = {};
+    
     if (infoMatch) {
       try {
         userInfo = JSON.parse(infoMatch[1]);
         this.logger.debug('Extracted user info:', userInfo);
+        
+        // wantedTopic이 있는 경우 로그 추가
+        if (userInfo['wantedTopic']) {
+          this.logger.debug('Found wantedTopic:', userInfo['wantedTopic']);
+        }
       } catch (error) {
         this.logger.error('Error parsing user info:', error);
       }
@@ -185,11 +191,11 @@ export class ConversationService {
       // const aiResponseWav = fs.readFileSync(wavFile);
       // this.logger.debug('Loaded local WAV file for response');
 
-      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
+      // const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
         
       // TODO: TTS 임시 비활성화 (비용 절감)
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      // this.logger.debug('Generated empty buffer for audio response');
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      this.logger.debug('Generated empty buffer for audio response');
 
 
       // 💾 대화 내용 저장
@@ -266,10 +272,9 @@ export class ConversationService {
         1. 반드시 한국어로만 응답해주세요.
         2. 총 발화는 20단어 이내로 해주세요.
         3. 이모지, 특수문자, 이모티콘은 절대 포함하지 마세요. 순수 텍스트로만 응답해주세요.
-        4. 응답은 다음과 같은 형식만 허용됩니다:
-           - 일반 텍스트
-           - [INFO:{}] 태그
-           - [DRAW:true/false] 태그
+        4. [INFO:{}]와 [DRAW:true/false] 태그는 반드시 응답 맨 마지막 줄에만 작성하고, 읽지 마세요
+        5. 응답 예시:
+           나비는 정말 아름다운 동물이에요. 함께 그려볼까요?
         
         사용자가 '[키워드]'에 긍정적인 반응을 보이면 (예시: 귀여워, 멋있어) 다음 동작을 수행합니다:
         1. ‘interest' 리스트에 해당 키워드를 추가합니다.
@@ -311,21 +316,23 @@ export class ConversationService {
       // 마지막 줄 제거 (JSON 태그가 있는 줄)
       const cleanResponse = aiResponse
         .split('\n')
-        .filter(line => !line.includes('[INFO:') && !line.includes('[DRAW:'))
+        .filter(line => !line.includes('[INFO:') && !line.includes('[DRAW:'))  // JSON 태그가 있는 줄 전체 제거
         .join('\n')
-        .replace(/🌈|🎨|🦋|😊/g, '') // 이모지 제거
+        .replace(/[^\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F\u0020-\u007F.!?]/g, '') // 이모지와 특수문자 제거
         .trim();
-      
+
+      // 디버그 로깅 추가
+      this.logger.debug('Original AI Response:', aiResponse);
+      this.logger.debug('Cleaned Response:', cleanResponse);
+
       if (!cleanResponse) {
-        this.logger.error('Clean response is empty');
+        this.logger.error('Clean response is empty. Original response:', aiResponse);
         throw new Error('Failed to generate valid response');
       }
-      
-      this.logger.debug('Clean Response:', cleanResponse);
-      
+
       // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
 
       // 💾 대화 내용 저장 (추출된 정보 포함)
@@ -337,10 +344,10 @@ export class ConversationService {
         false,
         undefined,
         undefined,
-        userInfo.interests,
-        userInfo.wantedTopic,
-        userInfo.preferences,
-        userInfo.personalInfo,
+        userInfo.interests || [],           // 빈 배열 기본값 설정
+        userInfo.wantedTopic || null,       // null 기본값 설정
+        userInfo.preferences || {},         // 빈 객체 기본값 설정
+        userInfo.personalInfo || {}         // 빈 객체 기본값 설정
       );
 
       // ✅ 결과 반환
