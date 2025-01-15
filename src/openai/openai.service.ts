@@ -158,4 +158,73 @@ export class OpenAIService {
       throw new Error('이미지 분석 중 오류가 발생했습니다.');
     }
   }
+
+  /**
+   * 🖼️ Vision API를 사용한 이미지 분석
+   */
+  async analyzeImagesWithVision(
+    userImageUrl: string, 
+    guideImageUrl: string,
+    currentStep: number,
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<{ score: number; feedback: string }> {
+    try {
+      this.logger.debug('Vision API로 이미지 분석 시작');
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              {
+                type: 'image_url',
+                image_url: { 
+                  url: guideImageUrl,
+                  detail: "high"  
+                }
+              },
+              {
+                type: 'image_url',
+                image_url: { 
+                  url: userImageUrl,
+                  detail: "high"  
+                }
+              }
+            ]
+          }
+        ],
+      });
+
+      const result = response.choices[0]?.message?.content;
+      if (!result) {
+        throw new Error('이미지 분석 결과가 없습니다');
+      }
+
+      this.logger.debug('이미지 분석 결과:', result);
+      
+      try {
+        // 응답 문자열 정리
+        const cleanedResult = result.trim();
+        // 코드 블록 표시가 있다면 제거
+        const jsonStr = cleanedResult.replace(/^```json\n|\n```$/g, '');
+        
+        return JSON.parse(jsonStr);
+      } catch (parseError) {
+        this.logger.error('JSON 파싱 실패. 응답:', result);
+        throw new Error('응답이 올바른 JSON 형식이 아닙니다. 프롬프트를 확인해주세요.');
+      }
+    } catch (error) {
+      this.logger.error(`Vision API 이미지 분석 중 오류 발생: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  
 }

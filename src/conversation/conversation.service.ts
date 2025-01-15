@@ -41,10 +41,16 @@ export class ConversationService {
   } {
     const infoMatch = aiResponse.match(/\[INFO:({.*?})\]/);
     let userInfo = {};
+    
     if (infoMatch) {
       try {
         userInfo = JSON.parse(infoMatch[1]);
         this.logger.debug('Extracted user info:', userInfo);
+        
+        // wantedTopic이 있는 경우 로그 추가
+        if (userInfo['wantedTopic']) {
+          this.logger.debug('Found wantedTopic:', userInfo['wantedTopic']);
+        }
       } catch (error) {
         this.logger.error('Error parsing user info:', error);
       }
@@ -164,8 +170,9 @@ export class ConversationService {
           - 이름: ${welcomeFlowDto.name}
 
           위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
-          이름을 자연스럽게 포함하여 대화하세요.
-          총 발화는 50자 이내로 해주세요.
+          자연스럽게 이름을 포함하여 대화하세요.
+          이모지는 읽지 마세요.
+          총 발화는 20단어 이내로 해주세요.
         `;
       }
   
@@ -184,11 +191,11 @@ export class ConversationService {
       // const aiResponseWav = fs.readFileSync(wavFile);
       // this.logger.debug('Loaded local WAV file for response');
 
-      const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
+      // const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
         
       // TODO: TTS 임시 비활성화 (비용 절감)
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      // this.logger.debug('Generated empty buffer for audio response');
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      this.logger.debug('Generated empty buffer for audio response');
 
 
       // 💾 대화 내용 저장
@@ -208,7 +215,7 @@ export class ConversationService {
 
       // ✅ 결과 반환
       return {
-        aiResponseWelcomeWav: aiResponseWav, // 이미 압축된 base64 문자열
+        aiResponseWelcomeWav: aiResponse, // 이미 압축된 base64 문자열
         choice: false,
       };
     } catch (error) {
@@ -261,11 +268,17 @@ export class ConversationService {
         이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
         그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
 
-        중요:
-        1. 반드시 한국어로 응답해주세요. 영어는 절대 사용하지 마세요.
-        2.총 발화는 50자 이내로 해주세요       
+        중요 - 응답 형식:
+        1. 반드시 한국어로만 응답해주세요.
+        2. 총 발화는 20단어 이내로 해주세요.
+        3. 이모지, 특수문자, 이모티콘은 절대 포함하지 마세요. 순수 텍스트로만 응답해주세요.
+        4. [INFO:{}]와 [DRAW:true/false] 태그는 반드시 응답 맨 마지막 줄에만 작성하고, 읽지 마세요
+        5. 응답 예시:
+           나비는 정말 아름다운 동물이에요. 함께 그려볼까요?
         
-        사용자가 '[키워드]'에 긍정적이라면 ‘interest' 리스트에 해당 키워드를 추가합니다. (예시: 피카츄 귀여워)
+        사용자가 '[키워드]'에 긍정적인 반응을 보이면 (예시: 귀여워, 멋있어) 다음 동작을 수행합니다:
+        1. ‘interest' 리스트에 해당 키워드를 추가합니다.
+
         사용자가 '[키워드]'를 그리고 싶어하는 의지가 있다면 (예시: 그릴래, 그리자) 다음 동작을 수행합니다:
         1. 해당 주제를 다시 권하지 않고, 긍정의 의미로 답변해주세요.
         2. 'wantedTopic' 에 해당 키워드를 추가합니다.
@@ -301,16 +314,45 @@ export class ConversationService {
       this.logger.debug(`Wants to draw: ${wantsToDraw}`);
 
       // 마지막 줄 제거 (JSON 태그가 있는 줄)
-      const cleanResponse = aiResponse.split('\n')
-        .filter(line => !line.includes('[INFO:') && !line.includes('[DRAW:'))
-        .join('\n')
+      const cleanResponse = aiResponse
+        .replace(/\[INFO:.*?\]/g, '') // INFO 태그 제거
+        .replace(/\[DRAW:.*?\]/g, '') // DRAW 태그 제거
+        .replace(/[🌈🎨🦋😊🍌]/g, '') // 이모지 제거
         .trim();
       
-      this.logger.debug('Clean Response:', cleanResponse);
-      
+      // 디버그 로깅 추가
+      this.logger.debug('Original AI Response:', aiResponse);
+      this.logger.debug('Cleaned Response:', cleanResponse);
+
+      if (!cleanResponse) {
+        this.logger.warn('Clean response is empty, using default response');
+        const defaultResponse = '무엇을 도와드릴까요?';
+        
+        // 💾 대화 내용 저장 (기본 응답)
+        await this.saveConversation(
+          welcomeFlowDto.sessionId,
+          welcomeFlowDto.name,
+          userText,
+          defaultResponse,
+          false,
+          undefined,
+          undefined,
+          userInfo.interests || [],
+          userInfo.wantedTopic || null,
+          userInfo.preferences || {},
+          userInfo.personalInfo || {}
+        );
+
+        return {
+          aiResponseWelcomeWav: aiResponse,
+          choice: wantsToDraw,
+          wantedTopic: userInfo.wantedTopic
+        };
+      }
+
       // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
-      // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
+      // const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
+      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated audio response');
 
       // 💾 대화 내용 저장 (추출된 정보 포함)
@@ -322,15 +364,15 @@ export class ConversationService {
         false,
         undefined,
         undefined,
-        userInfo.interests,
-        userInfo.wantedTopic,
-        userInfo.preferences,
-        userInfo.personalInfo,
+        userInfo.interests || [],           // 빈 배열 기본값 설정
+        userInfo.wantedTopic || null,       // null 기본값 설정
+        userInfo.preferences || {},         // 빈 객체 기본값 설정
+        userInfo.personalInfo || {}         // 빈 객체 기본값 설정
       );
 
       // ✅ 결과 반환
       return {
-        aiResponseWelcomeWav: aiResponseWav,
+        aiResponseWelcomeWav: aiResponse,
         choice: wantsToDraw,
         wantedTopic: userInfo.wantedTopic
       };
