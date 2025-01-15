@@ -69,7 +69,7 @@ export class OpenAIService {
 
       const completion = await this.openai.chat.completions.create({
         messages,
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o',
       });
 
       const response = completion.choices[0].message.content;
@@ -77,6 +77,42 @@ export class OpenAIService {
       return response;
     } catch (error) {
       this.logger.error(`Error in generateText: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // 🔍 분석용 텍스트 생성 함수 (GPT-4 모델 사용)
+  async generateAnalysis(systemPrompt: string | OpenAI.Chat.ChatCompletionMessageParam[], userPrompt?: string): Promise<string> {
+    try {
+      this.logger.debug('Generating analysis with system prompt:', systemPrompt);
+      this.logger.debug('User prompt for analysis:', userPrompt);
+
+      let messages: OpenAI.Chat.ChatCompletionMessageParam[];
+
+      if (Array.isArray(systemPrompt)) {
+        messages = systemPrompt;
+      } else {
+        messages = [
+          { role: 'user' as const, content: `${systemPrompt}\n\n${userPrompt || ''}` }
+        ];
+      }
+
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages,
+        max_completion_tokens: 500,
+      });
+
+      const response = completion.choices[0]?.message?.content || '';
+      this.logger.debug('Raw AI response:', response);
+
+      // 응답에서 마크다운 코드 블록 제거
+      const cleanedResponse = response.replace(/```(?:json)?\n|\n```/g, '').trim();
+      this.logger.debug('Cleaned response:', cleanedResponse);
+
+      return cleanedResponse;
+    } catch (error) {
+      this.logger.error('Error generating analysis:', error);
       throw error;
     }
   }
@@ -207,17 +243,27 @@ export class OpenAIService {
         throw new Error('이미지 분석 결과가 없습니다');
       }
 
-      this.logger.debug('이미지 분석 결과:', result);
+      this.logger.debug('Raw Vision API 응답:', result);
       
       try {
         // 응답 문자열 정리
-        const cleanedResult = result.trim();
-        // 코드 블록 표시가 있다면 제거
-        const jsonStr = cleanedResult.replace(/^```json\n|\n```$/g, '');
+        const cleanedResult = result
+          .replace(/```(?:json)?\n|\n```/g, '') // 코드 블록 제거
+          .replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, ''); // 공백 문자 제거
         
-        return JSON.parse(jsonStr);
+        this.logger.debug('정리된 응답:', cleanedResult);
+        
+        const parsedResult = JSON.parse(cleanedResult);
+        this.logger.debug('파싱된 결과:', parsedResult);
+        
+        if (!parsedResult.score || !parsedResult.feedback) {
+          throw new Error('응답에 필수 필드가 누락되었습니다');
+        }
+
+        return parsedResult;
       } catch (parseError) {
-        this.logger.error('JSON 파싱 실패. 응답:', result);
+        this.logger.error('JSON 파싱 실패. 원본 응답:', result);
+        this.logger.error('파싱 에러:', parseError);
         throw new Error('응답이 올바른 JSON 형식이 아닙니다. 프롬프트를 확인해주세요.');
       }
     } catch (error) {

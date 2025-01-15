@@ -132,7 +132,7 @@ export class TopicsService {
         throw new Error('확정할 주제를 찾을 수 없습니다');
       }
 
-      const response = await this.handleTopicConfirmation(topicToConfirm, dto.name);
+      const response = await this.handleTopicConfirmation(topicToConfirm, dto.name, dto.sessionId);
       
       const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
       
@@ -240,7 +240,8 @@ export class TopicsService {
     isTimedOut: string,
     sessionId: string
   ): Promise<ExploreTopicsResponseDto> {
-    const metadata = await this.handleTopicMetadata(selectedTopic, sessionId);
+    // 메타데이터 조회만 수행 (가이드라인 생성 없이)
+    const existingMetadata = await this.checkTopicMetadata(selectedTopic);
     const aiText = `${selectedTopic}가 맞나요?`;
     
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
@@ -249,11 +250,18 @@ export class TopicsService {
     // TODO: TTS 임시 비활성화 (비용 절감)
     const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
+    const metadata = existingMetadata ? new TopicImageMetadataResponseDto() : undefined;
+    if (metadata && existingMetadata) {
+      metadata.imageUrl = existingMetadata.imageUrl;
+      metadata.topic = selectedTopic;
+      metadata.guidelines = ''; // 선택 단계에서는 빈 가이드라인
+    }
+
     return {
       topics: selectedTopic,
       select: 'false',
       aiResponseExploreWav: aiText,
-      metadata: metadata || undefined,
+      metadata: metadata,
       originalText: aiText
     };
   }
@@ -263,7 +271,8 @@ export class TopicsService {
    */
   private async handleTopicConfirmation(
     selectedTopic: string,
-    name: string
+    name: string,
+    sessionId: string
   ): Promise<ExploreTopicsResponseDto> {
     this.logger.debug('주제 확정 처리 시작:', { selectedTopic, name });
     
@@ -271,6 +280,9 @@ export class TopicsService {
       this.logger.error('선택된 주제가 없습니다');
       throw new Error('선택된 주제가 없습니다');
     }
+
+    // 메타데이터와 가이드라인 처리
+    const metadata = await this.handleTopicMetadata(selectedTopic, sessionId);
 
     const confirmationPrompt = `
       주제: ${selectedTopic}
@@ -297,6 +309,7 @@ export class TopicsService {
       topics: selectedTopic,
       select: 'true',
       aiResponseExploreWav: aiText,
+      metadata: metadata || undefined,
       originalText: aiText
     };
   }
@@ -411,7 +424,9 @@ export class TopicsService {
         "confirmedTopic": boolean,        // 주제 확정 여부
         "wantsDifferentGroup": boolean,   // 다른 그룹 요청 여부
         "wantsDifferentTopics": boolean   // 같은 그룹 내 다른 주제 요청 여부
-      }`;
+      }
+
+      주의: 응답은 순수한 JSON 형식이어야 하며, 마크다운이나 다른 포맷팅을 포함하지 마세요.`;
 
     const analysisPrompt = 
      `현재 상황:
@@ -427,11 +442,27 @@ export class TopicsService {
 
       주의사항:
       - 새로운 주제 언급은 항상 선택 단계로 처리 (confirmedTopic: false)
-      - 확정은 이전 제안된 주제에 대한 명확한 긍정 응답일 때만 가능`;
+      - 확정은 이전 제안된 주제에 대한 명확한 긍정 응답일 때만 가능
+      - 응답은 순수한 JSON 형식이어야 하며, 마크다운이나 다른 포맷팅을 포함하지 마세요.`;
     
     this.logger.log(analysisPrompt);
-    const analysisResponse = await this.openAIService.generateText(systemPrompt, analysisPrompt);
-    return JSON.parse(analysisResponse);
+    const analysisResponse = await this.openAIService.generateAnalysis(systemPrompt, analysisPrompt);
+
+    // 마크다운 포맷팅 제거
+    const cleanResponse = analysisResponse.replace(/```json\n|\n```/g, '').trim();
+    
+    try {
+      return JSON.parse(cleanResponse);
+    } catch (error) {
+      this.logger.error('JSON 파싱 실패:', { response: cleanResponse, error });
+      // 기본값 반환
+      return {
+        selectedTopic: null,
+        confirmedTopic: false,
+        wantsDifferentGroup: false,
+        wantsDifferentTopics: false
+      };
+    }
   }
 
   /**
@@ -646,19 +677,55 @@ export class TopicsService {
       5. 단계는 기본 형태 잡기부터 시작해서 세부 묘사, 색칠하기 순으로 구성
       6. 마지막 단계는 항상 완성작 감상과 칭찬으로 마무리
       
-      응답은 반드시 JSON 배열 형식이어야 하며, 다른 텍스트는 포함하지 마세요.
+      응답은 반드시 순수한 JSON 배열 형식이어야 하며, 마크다운이나 다른 텍스트는 포함하지 마세요.
     `;
 
-    const guidelineJson = await this.openAIService.generateText(guidelinePrompt);
-    return guidelineJson;
+    try {
+      const response = await this.openAIService.generateText(guidelinePrompt);
+      
+      // 마크다운 코드 블록 제거
+      const cleanedResponse = response.replace(/```(?:json)?\n|\n```/g, '').trim();
+      
+      // JSON 파싱 시도
+      try {
+        JSON.parse(cleanedResponse); // 유효성 검증
+        return cleanedResponse;
+      } catch (parseError) {
+        this.logger.error('가이드라인 JSON 파싱 실패:', parseError);
+        this.logger.error('원본 응답:', response);
+        this.logger.error('정리된 응답:', cleanedResponse);
+        
+        // 기본 가이드라인 반환
+        return JSON.stringify([
+          {
+            "step": 1,
+            "title": "기본 형태 잡기",
+            "instruction": "전체적인 형태를 가볍게 스케치해보세요."
+          },
+          {
+            "step": 2,
+            "title": "세부 묘사하기",
+            "instruction": "특징적인 부분을 자세히 그려보세요."
+          },
+          {
+            "step": 3,
+            "title": "완성하기",
+            "instruction": "잘 그리셨어요. 이제 마음에 드는 색으로 칠해보세요."
+          }
+        ]);
+      }
+    } catch (error) {
+      this.logger.error(`가이드라인 생성 실패: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   /**
    * 🎨 주제 이미지 생성
-   */
+   */ 
   private async generateTopicImage(topic: string): Promise<string> {
     const imagePrompt = `
-      “심플한 2D 카툰 스타일의 빨간 사과 일러스트를 생성해 줘.
+      "심플한 2D 카툰 스타일의 빨간 사과 일러스트를 생성해 줘.
       사과는 선명한 빨간색으로, 꼭지와 초록색 잎이 달려 있고,
       테두리는 깔끔한 검은색 선으로 표현해 줘.
       배경은 흰색으로 단순하게 유지하고,
@@ -730,52 +797,124 @@ export class TopicsService {
 
     const existingMetadata = await this.checkTopicMetadata(topic);
     if (existingMetadata) {
-      const guidelines = await this.generateGuidelines(existingMetadata.imageUrl);
-      const parsedGuidelines = JSON.parse(guidelines);
+      try {
+        const guidelines = await this.generateGuidelines(existingMetadata.imageUrl);
+        
+        // 마크다운 포맷팅 제거 및 공백 정리
+        const cleanedGuidelines = guidelines.replace(/```(?:json)?\n|\n```/g, '').trim();
+        
+        // JSON 파싱 시도
+        let parsedGuidelines;
+        try {
+          parsedGuidelines = JSON.parse(cleanedGuidelines);
+        } catch (parseError) {
+          this.logger.error('가이드라인 JSON 파싱 실패:', parseError);
+          this.logger.error('원본 가이드라인:', guidelines);
+          this.logger.error('정리된 가이드라인:', cleanedGuidelines);
+          
+          // 기본 가이드라인 사용
+          parsedGuidelines = [
+            {
+              "step": 1,
+              "title": "기본 형태 잡기",
+              "instruction": "전체적인 형태를 가볍게 스케치해보세요."
+            },
+            {
+              "step": 2,
+              "title": "세부 묘사하기",
+              "instruction": "특징적인 부분을 자세히 그려보세요."
+            },
+            {
+              "step": 3,
+              "title": "완성하기",
+              "instruction": "잘 그리셨어요. 이제 마음에 드는 색으로 칠해보세요."
+            }
+          ];
+        }
+      
+        // DrawingGuide 저장
+        await this.drawingGuideModel.create({
+          sessionId: sessionId,
+          topic,
+          imageUrl: existingMetadata.imageUrl,
+          steps: parsedGuidelines
+        });
+
+        const response = new TopicImageMetadataResponseDto();
+        response.imageUrl = existingMetadata.imageUrl;
+        response.guidelines = JSON.stringify(parsedGuidelines);
+        response.topic = topic;
+        return response;
+      } catch (error) {
+        this.logger.error(`메타데이터 처리 중 오류 발생: ${error.message}`, error.stack);
+        return null;
+      }
+    }
+
+    this.logger.log('메타데이터 생성 시작');
+    
+    try {
+      // 이미지 먼저 생성
+      const imageUrl = await this.generateTopicImage(topic);
+      
+      // 이미지 저장
+      const savedMetadata = await this.saveTopicMetadata(topic, imageUrl);
+      if (!savedMetadata) {
+        return null;
+      }
+
+      // 저장된 이미지 기반으로 가이드라인 생성
+      const guidelines = await this.generateGuidelines(savedMetadata.imageUrl);
+      
+      // 마크다운 포맷팅 제거 및 공백 정리
+      const cleanedGuidelines = guidelines.replace(/```(?:json)?\n|\n```/g, '').trim();
+      
+      // JSON 파싱 시도
+      let parsedGuidelines;
+      try {
+        parsedGuidelines = JSON.parse(cleanedGuidelines);
+      } catch (parseError) {
+        this.logger.error('가이드라인 JSON 파싱 실패:', parseError);
+        this.logger.error('원본 가이드라인:', guidelines);
+        this.logger.error('정리된 가이드라인:', cleanedGuidelines);
+        
+        // 기본 가이드라인 사용
+        parsedGuidelines = [
+          {
+            "step": 1,
+            "title": "기본 형태 잡기",
+            "instruction": "전체적인 형태를 가볍게 스케치해보세요."
+          },
+          {
+            "step": 2,
+            "title": "세부 묘사하기",
+            "instruction": "특징적인 부분을 자세히 그려보세요."
+          },
+          {
+            "step": 3,
+            "title": "완성하기",
+            "instruction": "잘 그리셨어요. 이제 마음에 드는 색으로 칠해보세요."
+          }
+        ];
+      }
       
       // DrawingGuide 저장
       await this.drawingGuideModel.create({
         sessionId: sessionId,
         topic,
-        imageUrl: existingMetadata.imageUrl,
+        imageUrl: savedMetadata.imageUrl,
         steps: parsedGuidelines
       });
 
       const response = new TopicImageMetadataResponseDto();
-      response.imageUrl = existingMetadata.imageUrl;
-      response.guidelines = guidelines;
+      response.imageUrl = savedMetadata.imageUrl;
+      response.guidelines = JSON.stringify(parsedGuidelines);
       response.topic = topic;
       return response;
-    }
-
-    this.logger.log('메타데이터 생성 시작');
-    
-    // 이미지 먼저 생성
-    const imageUrl = await this.generateTopicImage(topic);
-    
-    // 이미지 저장
-    const savedMetadata = await this.saveTopicMetadata(topic, imageUrl);
-    if (!savedMetadata) {
+    } catch (error) {
+      this.logger.error(`메타데이터 처리 중 오류 발생: ${error.message}`, error.stack);
       return null;
     }
-
-    // 저장된 이미지 기반으로 가이드라인 생성
-    const guidelines = await this.generateGuidelines(savedMetadata.imageUrl);
-    const parsedGuidelines = JSON.parse(guidelines);
-    
-    // DrawingGuide 저장
-    await this.drawingGuideModel.create({
-      sessionId: sessionId,
-      topic,
-      imageUrl: savedMetadata.imageUrl,
-      steps: parsedGuidelines
-    });
-
-    const response = new TopicImageMetadataResponseDto();
-    response.imageUrl = savedMetadata.imageUrl;
-    response.guidelines = guidelines;
-    response.topic = topic;
-    return response;
   }
 
 } 
