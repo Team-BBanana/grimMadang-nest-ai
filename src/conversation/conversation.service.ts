@@ -315,19 +315,39 @@ export class ConversationService {
 
       // 마지막 줄 제거 (JSON 태그가 있는 줄)
       const cleanResponse = aiResponse
-        .split('\n')
-        .filter(line => !line.includes('[INFO:') && !line.includes('[DRAW:'))  // JSON 태그가 있는 줄 전체 제거
-        .join('\n')
-        .replace(/[^\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F\u0020-\u007F.!?]/g, '') // 이모지와 특수문자 제거
+        .replace(/\[INFO:.*?\]/g, '') // INFO 태그 제거
+        .replace(/\[DRAW:.*?\]/g, '') // DRAW 태그 제거
+        .replace(/[🌈🎨🦋😊🍌]/g, '') // 이모지 제거
         .trim();
-
+      
       // 디버그 로깅 추가
       this.logger.debug('Original AI Response:', aiResponse);
       this.logger.debug('Cleaned Response:', cleanResponse);
 
       if (!cleanResponse) {
-        this.logger.error('Clean response is empty. Original response:', aiResponse);
-        throw new Error('Failed to generate valid response');
+        this.logger.warn('Clean response is empty, using default response');
+        const defaultResponse = '무엇을 도와드릴까요?';
+        
+        // 💾 대화 내용 저장 (기본 응답)
+        await this.saveConversation(
+          welcomeFlowDto.sessionId,
+          welcomeFlowDto.name,
+          userText,
+          defaultResponse,
+          false,
+          undefined,
+          undefined,
+          userInfo.interests || [],
+          userInfo.wantedTopic || null,
+          userInfo.preferences || {},
+          userInfo.personalInfo || {}
+        );
+
+        return {
+          aiResponseWelcomeWav: Buffer.from(''),
+          choice: wantsToDraw,
+          wantedTopic: userInfo.wantedTopic
+        };
       }
 
       // TODO: TTS 임시 비활성화 (비용 절감)
