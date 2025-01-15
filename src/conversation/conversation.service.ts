@@ -288,69 +288,104 @@ export class ConversationService {
       // 💬 이전 대화 내역 가져오기
       const previousConversations = await this.getPreviousConversations(welcomeFlowDto.sessionId);
 
-      // 📝 프롬프트 생성
-      const prompt = `
-        ${previousConversations ? '이전 대화 내역:\n' + previousConversations + '\n\n' : ''}
-        사용자 정보:
-        - 이름: ${welcomeFlowDto.name} (해당 이름을 기억하여, 이름을 다시 물어보는 질문이 나오면 해당 이름을 다시 알려드리면서 대화를 이어가주세요.)
-        
-        현재 사용자 발화: ${userText} (해당 발화에 대한 답변이 1순위입니다. 다른 정보들은 해당 질문에 대한 답변을 자연스럽게 하기 위함입니다.)
+      // 1단계: 대화 응답 생성
+      const conversationSystemPrompt = `
+        당신은 노인 사용자와 대화하며 그림 그리기를 도와주는 AI 어시스턴트입니다.
 
-        위 대화 내역을 바탕으로 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
-        이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
-        그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
-
-        ⚠️ 매우 중요 - 응답 형식 (절대적으로 준수):
-        1. 반드시 한국어로만 응답해주세요.
-        2. 총 발화는 20단어 이내로 해주세요.
-        3. 절대로 이모지나 이모티콘을 포함하지 마세요:
-           - 유니코드 이모지 사용 금지 (예: 😊 🎨 등)
-           - ASCII 이모티콘 사용 금지 (예: :) ㅎㅎ ^^ 등)
-           - 특수문자를 이용한 이모티콘 사용 금지 (예: ♥ ★ ▶ 등)
-        4. 오직 다음 문자만 사용하세요:
+        ⚠️ 응답 규칙:
+        1. 반드시 한국어로만 응답
+        2. 총 발화는 20단어 이내
+        3. 금지 항목:
+           - 이모지, 이모티콘 사용 금지
+           - ASCII 이모티콘 사용 금지
+           - 특수문자 이모티콘 사용 금지
+        4. 허용되는 문자:
            - 한글
            - 기본 문장부호 (마침표, 쉼표, 물음표, 느낌표)
            - 기본 괄호
-        5. [INFO:{}]와 [DRAW:true/false] 태그는 반드시 응답 맨 마지막 줄에만 작성하고, 읽지 마세요.
-        6. 응답 예시:
-           "사과를 그리고 싶으시군요. 사과는 동그란 모양이 특징이에요. 함께 그려볼까요?"
 
-        위 형식을 엄격하게 준수하여 응답해주세요. 어떤 경우에도 이모지나 이모티콘을 포함하지 마세요.
-
-        사용자가 '[키워드]'에 긍정적인 반응을 보이면 (예시: 귀여워, 멋있어) 다음 동작을 수행합니다:
-        1. ‘interest' 리스트에 해당 키워드를 추가합니다.
-
-        사용자가 '[키워드]'를 그리고 싶어하는 의지가 있다면 (예시: 그릴래, 그리자) 다음 동작을 수행합니다:
-        1. 해당 주제를 다시 권하지 않고, 긍정의 의미로 답변해주세요.
-        2. 'wantedTopic' 에 해당 키워드를 추가합니다.
-        3. 'choice' 값을 True로 설정합니다.  
-        사용자와 관련된 맞춤형 답변을 제공합니다.
-
-        또한, 대화 내용에서 다음 정보들을 파악해주세요:
-        1. 사용자의 관심사 (예: 꽃, 풍경, 동물 등)
-        2. 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
-        3. 선호도 (그림 난이도, 스타일, 좋아하는 주제나 색상 등)
-        4. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
-        
-        파악된 정보는 답변 끝에 JSON 형식으로 추가해주세요:
-        예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
-        
-        마지막으로, 사용자의 그림 그리기 의향도 판단해주세요:
-        - 사용자가 그림 그리기에 긍정적이거나 관심을 보이면 답변 마지막에 "[DRAW:true]"를 추가해주세요.
-        - 사용자가 그림 그리기에 부정적이거나 관심이 없으면 답변 마지막에 "[DRAW:false]"를 추가해주세요.
-        - 답변은 자연스러워야 하며, [INFO]와 [DRAW] 태그는 맨 마지막에만 붙여주세요.
+        5. 제한사항:
+           - 그리기 어려운 주제 지양 (복잡한 동물, 상상 속 생물 등)
       `;
 
-      this.logger.debug('Generated prompt:', prompt);
+      const conversationUserPrompt = `
+        ${previousConversations ? '이전 대화 내역:\n' + previousConversations + '\n\n' : ''}
+        
+        사용자 정보:
+        - 이름: ${welcomeFlowDto.name}
+        ${userText ? '현재 발화: ' + userText : ''}
 
-      // 🤖 AI 응답 생성
-      const aiResponse = await this.openaiService.generateText(prompt);
-      this.logger.debug('Original AI Response:', aiResponse);
+        위 정보를 바탕으로 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
+        이전 대화가 있다면 맥락을 고려하여 답변해주세요.
+      `;
 
-      // 응답 처리 로직 개선
+      // 대화 응답 생성
+      const conversationResponse = await this.openaiService.generateText(conversationSystemPrompt, conversationUserPrompt);
+      this.logger.debug('Generated conversation response:', conversationResponse);
+
+      // 2단계: 응답 분석 및 태그 생성
+      const analysisSystemPrompt = `
+        당신은 대화 내용을 분석하여 정보를 추출하고 태그를 생성하는 AI 어시스턴트입니다.
+
+        분석 규칙:
+        1. 사용자 정보 파악:
+           - 관심사: 사용자가 언급한 모든 주제나 관심사를 배열로 기록
+           - 그리고 싶은 주제: 사용자가 직접적으로 그리고 싶다고 언급한 구체적인 주제
+           - 선호도: 난이도, 스타일 등 사용자가 언급한 선호사항
+           - 개인정보: 현재 상태, 감정 등
+
+        2. 태그 생성 규칙:
+           [INFO] 태그:
+           - interests: 언급된 모든 관심사를 배열로 포함
+           - wantedTopic: 그리고 싶다고 명확한 의향 표현이 있는 경우
+             * "~그리고 싶어", "~그려보고 싶어" 등 직접적인 의향 표현이 있어야 함
+             * 해당 표현이 없으면 빈 문자열로 설정
+           - preferences: 선호도 정보
+           - personalInfo: 개인 상태 정보
+
+           [DRAW] 태그:
+           - true로 설정해야 하는 경우:
+             * "~그리고 싶어", "~그려보고 싶어" 등 명확한 의향 표현이 있는 경우
+             * 특정 주제를 지정하여 그리기를 원하는 경우
+           - false로 설정하는 경우:
+             * 단순히 그리기에 대한 관심만 표현한 경우
+             * 그리기 의향이 불명확한 경우 
+
+        응답 형식:
+        반드시 아래 형식으로만 응답하세요:
+        [INFO:{"interests":["관심사1","관심사2"],"wantedTopic":"그리고 싶다고 명시한 주제","preferences":{},"personalInfo":{}}]
+        [DRAW:true/false]
+
+        예시:
+        입력: "사과 그리고 싶어"
+        출력:
+        [INFO:{"interests":["과일","사과"],"wantedTopic":"사과","preferences":{},"personalInfo":{}}]
+        [DRAW:true]
+      `;
+
+      const analysisUserPrompt = `
+        사용자 발화: ${userText}
+        AI 응답: ${conversationResponse}
+
+        위 대화를 분석하여 정보를 추출하고 태그를 생성해주세요.
+        특히 다음 사항을 중점적으로 파악해주세요:
+        1. 사용자가 특정 주제를 그리고 싶어하는지
+        2. 사용자의 관심사나 선호도
+        3. 사용자의 현재 상태나 감정
+      `;
+
+      // 태그 생성
+      const tagResponse = await this.openaiService.generateAnalysis(analysisSystemPrompt, analysisUserPrompt);
+      this.logger.debug('Generated tags:', tagResponse);
+
+      // 최종 응답 조합
+      const aiResponse = `${conversationResponse}\n${tagResponse}`;
+      this.logger.debug('Combined response:', aiResponse);
+
+      // 응답 처리 로직
       const userInfo = this.extractUserInfo(aiResponse);
       const wantsToDraw = this.extractDrawIntent(aiResponse);
-      const cleanResponse = this.extractCleanText(aiResponse);
+      const cleanResponse = this.extractCleanText(conversationResponse);  // 순수 대화 응답만 사용
 
       this.logger.debug('Clean Response:', cleanResponse);
 
@@ -376,7 +411,7 @@ export class ConversationService {
         return {
           aiResponseWelcomeWav: defaultResponse,
           choice: wantsToDraw,
-          wantedTopic: userInfo.wantedTopic
+          wantedTopic: userInfo.wantedTopic || null
         };
       }
 
@@ -391,7 +426,7 @@ export class ConversationService {
         welcomeFlowDto.name,
         userText,
         cleanResponse,
-        false,
+        wantsToDraw,  // choice 값을 정확하게 저장
         undefined,
         undefined,
         userInfo.interests || [],           // 빈 배열 기본값 설정
@@ -400,11 +435,17 @@ export class ConversationService {
         userInfo.personalInfo || {}         // 빈 객체 기본값 설정
       );
 
-      // ✅ 결과 반환
+      // 디버그 로그 추가
+      this.logger.debug('User Info:', userInfo);
+      this.logger.debug('Wants to draw:', wantsToDraw);
+      this.logger.debug('Wanted Topic:', userInfo.wantedTopic);
+
+      // ✅ 결과 반환 (wantedTopic이 있으면 choice도 true여야 함)
+      const hasWantedTopic = !!userInfo.wantedTopic;
       return {
         aiResponseWelcomeWav: cleanResponse,
-        choice: wantsToDraw,
-        wantedTopic: userInfo.wantedTopic
+        choice: hasWantedTopic || wantsToDraw,  // wantedTopic이 있으면 무조건 true
+        wantedTopic: userInfo.wantedTopic || null
       };
     } catch (error) {
       // ❌ 에러 처리

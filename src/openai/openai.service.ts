@@ -81,6 +81,38 @@ export class OpenAIService {
     }
   }
 
+  // 🔍 분석용 텍스트 생성 함수 (GPT-4 모델 사용)
+  async generateAnalysis(systemPrompt: string | OpenAI.Chat.ChatCompletionMessageParam[], userPrompt?: string): Promise<string> {
+    try {
+      this.logger.debug('Generating analysis with system prompt:', systemPrompt);
+      this.logger.debug('User prompt for analysis:', userPrompt);
+
+      let messages: OpenAI.Chat.ChatCompletionMessageParam[];
+
+      if (Array.isArray(systemPrompt)) {
+        messages = systemPrompt;
+      } else {
+        messages = [
+          { role: 'user' as const, content: `${systemPrompt}\n\n${userPrompt || ''}` }
+        ];
+      }
+
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages,
+        max_completion_tokens: 500,
+      });
+
+      const response = completion.choices[0]?.message?.content || '';
+      this.logger.debug('Generated analysis:', response);
+
+      return response;
+    } catch (error) {
+      this.logger.error('Error generating analysis:', error);
+      throw error;
+    }
+  }
+
   // 🔊 텍스트를 음성으로 변환하는 함수 (Text-to-Speech)
   async textToSpeech(text: string): Promise<Buffer> { // 반환 타입을 Buffer로 변경
     try {
