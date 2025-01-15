@@ -699,7 +699,7 @@ export class TopicsService {
           "title": "기본 형태 잡기",
           "instruction": "전체적인 모양을 동그라미로 크게 그려보세요."
         }
-      ]
+      ] 
       
       응답은 반드시 순수한 JSON 배열 형식으로만 제공하세요.
       마크다운이나 다른 텍스트는 포함하지 마세요.
