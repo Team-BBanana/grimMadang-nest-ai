@@ -132,7 +132,7 @@ export class TopicsService {
         throw new Error('확정할 주제를 찾을 수 없습니다');
       }
 
-      const response = await this.handleTopicConfirmation(topicToConfirm, dto.name);
+      const response = await this.handleTopicConfirmation(topicToConfirm, dto.name, dto.sessionId);
       
       const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
       
@@ -240,7 +240,8 @@ export class TopicsService {
     isTimedOut: string,
     sessionId: string
   ): Promise<ExploreTopicsResponseDto> {
-    const metadata = await this.handleTopicMetadata(selectedTopic, sessionId);
+    // 메타데이터 조회만 수행 (가이드라인 생성 없이)
+    const existingMetadata = await this.checkTopicMetadata(selectedTopic);
     const aiText = `${selectedTopic}가 맞나요?`;
     
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
@@ -249,11 +250,18 @@ export class TopicsService {
     // TODO: TTS 임시 비활성화 (비용 절감)
     const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
+    const metadata = existingMetadata ? new TopicImageMetadataResponseDto() : undefined;
+    if (metadata && existingMetadata) {
+      metadata.imageUrl = existingMetadata.imageUrl;
+      metadata.topic = selectedTopic;
+      metadata.guidelines = ''; // 선택 단계에서는 빈 가이드라인
+    }
+
     return {
       topics: selectedTopic,
       select: 'false',
       aiResponseExploreWav: aiText,
-      metadata: metadata || undefined,
+      metadata: metadata,
       originalText: aiText
     };
   }
@@ -263,7 +271,8 @@ export class TopicsService {
    */
   private async handleTopicConfirmation(
     selectedTopic: string,
-    name: string
+    name: string,
+    sessionId: string
   ): Promise<ExploreTopicsResponseDto> {
     this.logger.debug('주제 확정 처리 시작:', { selectedTopic, name });
     
@@ -271,6 +280,9 @@ export class TopicsService {
       this.logger.error('선택된 주제가 없습니다');
       throw new Error('선택된 주제가 없습니다');
     }
+
+    // 메타데이터와 가이드라인 처리
+    const metadata = await this.handleTopicMetadata(selectedTopic, sessionId);
 
     const confirmationPrompt = `
       주제: ${selectedTopic}
@@ -297,6 +309,7 @@ export class TopicsService {
       topics: selectedTopic,
       select: 'true',
       aiResponseExploreWav: aiText,
+      metadata: metadata || undefined,
       originalText: aiText
     };
   }
@@ -655,7 +668,7 @@ export class TopicsService {
 
   /**
    * 🎨 주제 이미지 생성
-   */
+   */ 
   private async generateTopicImage(topic: string): Promise<string> {
     const imagePrompt = `
       “심플한 2D 카툰 스타일의 빨간 사과 일러스트를 생성해 줘.

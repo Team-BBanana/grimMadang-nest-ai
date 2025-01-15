@@ -58,6 +58,21 @@ export class ConversationService {
     return userInfo;
   }
 
+  // 🎯 AI 응답에서 실제 텍스트만 추출하는 함수
+  private extractCleanText(aiResponse: string): string {
+    // 모든 [TAG:내용] 형식의 태그를 찾아서 제거
+    const cleanText = aiResponse.replace(/\[(?:INFO|DRAW):.*?\]/g, '').trim();
+    
+    // 응답이 따옴표로 둘러싸여 있는 경우 제거
+    return cleanText.replace(/^["'](.*)["']$/, '$1').trim();
+  }
+
+  // 🎨 AI 응답에서 그리기 의도를 추출하는 함수
+  private extractDrawIntent(aiResponse: string): boolean {
+    const drawMatch = aiResponse.match(/\[DRAW:(true|false)\]/);
+    return drawMatch ? drawMatch[1] === 'true' : false;
+  }
+
   // 💬 이전 대화 내역을 가져오는 private 메소드
   private async getPreviousConversations(sessionId: string): Promise<string> {
     // 🔍 디버그 로그 출력
@@ -170,9 +185,20 @@ export class ConversationService {
           - 이름: ${welcomeFlowDto.name}
 
           위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
-          자연스럽게 이름을 포함하여 대화하세요.
-          이모지는 읽지 마세요.
-          총 발화는 20단어 이내로 해주세요.
+          
+          ⚠️ 매우 중요 - 응답 형식 (절대적으로 준수):
+          1. 자연스럽게 이름을 포함하여 대화하세요.
+          2. 총 발화는 20단어 이내로 해주세요.
+          3. 절대로 이모지나 이모티콘을 포함하지 마세요:
+             - 유니코드 이모지 사용 금지 (예: 😊 🎨 등)
+             - ASCII 이모티콘 사용 금지 (예: :) ㅎㅎ ^^ 등)
+             - 특수문자를 이용한 이모티콘 사용 금지 (예: ♥ ★ ▶ 등)
+          4. 오직 다음 문자만 사용하세요:
+             - 한글
+             - 기본 문장부호 (마침표, 쉼표, 물음표, 느낌표)
+             - 기본 괄호
+          
+          위 형식을 엄격하게 준수하여 응답해주세요. 어떤 경우에도 이모지나 이모티콘을 포함하지 마세요.
         `;
       }
   
@@ -181,9 +207,9 @@ export class ConversationService {
     // 🤖 AI 응답 생성 및 처리
     try {
       const aiResponse = await this.openaiService.generateText(prompt);
-      this.logger.debug('AI Response:', aiResponse);
+      this.logger.debug('Original AI Response:', aiResponse);
 
-      // 🔊 음성 변환
+       // 🔊 음성 변환
       // 대신 로컬 WAV 파일 읽기 
       // const fs = require('fs');
       // const path = require('path');
@@ -191,19 +217,25 @@ export class ConversationService {
       // const aiResponseWav = fs.readFileSync(wavFile);
       // this.logger.debug('Loaded local WAV file for response');
 
+      // 태그와 이모지 제거
+      const cleanResponse = aiResponse
+        .replace(/\[INFO:.*?\]/g, '')  // INFO 태그 제거
+        .replace(/\[DRAW:.*?\]/g, '')  // DRAW 태그 제거
+        .trim();  // 앞뒤 공백 제거
+
       // const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
-        
+      this.logger.debug('Cleaned Response:', cleanResponse);
+
       // TODO: TTS 임시 비활성화 (비용 절감)
       const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
       this.logger.debug('Generated empty buffer for audio response');
-
 
       // 💾 대화 내용 저장
       await this.saveConversation(
         welcomeFlowDto.sessionId,
         welcomeFlowDto.name,
         'first',
-        aiResponse,
+        cleanResponse,
         true,
         welcomeFlowDto.attendanceTotal,
         welcomeFlowDto.attendanceStreak,
@@ -215,7 +247,7 @@ export class ConversationService {
 
       // ✅ 결과 반환
       return {
-        aiResponseWelcomeWav: aiResponse, // 이미 압축된 base64 문자열
+        aiResponseWelcomeWav: cleanResponse,
         choice: false,
       };
     } catch (error) {
@@ -268,14 +300,23 @@ export class ConversationService {
         이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
         그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
 
-        중요 - 응답 형식:
+        ⚠️ 매우 중요 - 응답 형식 (절대적으로 준수):
         1. 반드시 한국어로만 응답해주세요.
         2. 총 발화는 20단어 이내로 해주세요.
-        3. 이모지, 특수문자, 이모티콘은 절대 포함하지 마세요. 순수 텍스트로만 응답해주세요.
-        4. [INFO:{}]와 [DRAW:true/false] 태그는 반드시 응답 맨 마지막 줄에만 작성하고, 읽지 마세요
-        5. 응답 예시:
-           나비는 정말 아름다운 동물이에요. 함께 그려볼까요?
-        
+        3. 절대로 이모지나 이모티콘을 포함하지 마세요:
+           - 유니코드 이모지 사용 금지 (예: 😊 🎨 등)
+           - ASCII 이모티콘 사용 금지 (예: :) ㅎㅎ ^^ 등)
+           - 특수문자를 이용한 이모티콘 사용 금지 (예: ♥ ★ ▶ 등)
+        4. 오직 다음 문자만 사용하세요:
+           - 한글
+           - 기본 문장부호 (마침표, 쉼표, 물음표, 느낌표)
+           - 기본 괄호
+        5. [INFO:{}]와 [DRAW:true/false] 태그는 반드시 응답 맨 마지막 줄에만 작성하고, 읽지 마세요.
+        6. 응답 예시:
+           "사과를 그리고 싶으시군요. 사과는 동그란 모양이 특징이에요. 함께 그려볼까요?"
+
+        위 형식을 엄격하게 준수하여 응답해주세요. 어떤 경우에도 이모지나 이모티콘을 포함하지 마세요.
+
         사용자가 '[키워드]'에 긍정적인 반응을 보이면 (예시: 귀여워, 멋있어) 다음 동작을 수행합니다:
         1. ‘interest' 리스트에 해당 키워드를 추가합니다.
 
@@ -304,25 +345,14 @@ export class ConversationService {
 
       // 🤖 AI 응답 생성
       const aiResponse = await this.openaiService.generateText(prompt);
-      this.logger.debug('AI Response:', aiResponse);
-
-      // 🔊 사용자 정보 추출 (원본 응답에서)
-      const userInfo = this.extractUserInfo(aiResponse);
-      
-      const wantsToDraw = /\[DRAW:true\]$/.test(aiResponse);
-
-      this.logger.debug(`Wants to draw: ${wantsToDraw}`);
-
-      // 마지막 줄 제거 (JSON 태그가 있는 줄)
-      const cleanResponse = aiResponse
-        .replace(/\[INFO:.*?\]/g, '') // INFO 태그 제거
-        .replace(/\[DRAW:.*?\]/g, '') // DRAW 태그 제거
-        .replace(/[🌈🎨🦋😊🍌]/g, '') // 이모지 제거
-        .trim();
-      
-      // 디버그 로깅 추가
       this.logger.debug('Original AI Response:', aiResponse);
-      this.logger.debug('Cleaned Response:', cleanResponse);
+
+      // 응답 처리 로직 개선
+      const userInfo = this.extractUserInfo(aiResponse);
+      const wantsToDraw = this.extractDrawIntent(aiResponse);
+      const cleanResponse = this.extractCleanText(aiResponse);
+
+      this.logger.debug('Clean Response:', cleanResponse);
 
       if (!cleanResponse) {
         this.logger.warn('Clean response is empty, using default response');
@@ -344,7 +374,7 @@ export class ConversationService {
         );
 
         return {
-          aiResponseWelcomeWav: aiResponse,
+          aiResponseWelcomeWav: defaultResponse,
           choice: wantsToDraw,
           wantedTopic: userInfo.wantedTopic
         };
@@ -372,7 +402,7 @@ export class ConversationService {
 
       // ✅ 결과 반환
       return {
-        aiResponseWelcomeWav: aiResponse,
+        aiResponseWelcomeWav: cleanResponse,
         choice: wantsToDraw,
         wantedTopic: userInfo.wantedTopic
       };
