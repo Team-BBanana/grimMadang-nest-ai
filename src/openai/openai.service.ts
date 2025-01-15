@@ -240,10 +240,21 @@ export class OpenAIService {
 
       const result = response.choices[0]?.message?.content;
       if (!result) {
-        throw new Error('이미지 분석 결과가 없습니다');
+        return {
+          score: 0,
+          feedback: '현재 그림을 평가하기 어려운 상황이에요. 잠시 후에 다시 시도해주세요.'
+        };
       }
 
       this.logger.debug('Raw Vision API 응답:', result);
+      
+      // 응답에서 특정 에러 메시지 패턴 확인
+      if (result.includes('지원되지 않습니다') || result.includes('처리할 수 없습니다')) {
+        return {
+          score: 0,
+          feedback: '죄송합니다. 지금은 그림을 평가하기 어려워요. 잠시 후에 다시 시도해주세요.'
+        };
+      }
       
       try {
         // 응답 문자열 정리
@@ -254,21 +265,32 @@ export class OpenAIService {
         this.logger.debug('정리된 응답:', cleanedResult);
         
         const parsedResult = JSON.parse(cleanedResult);
-        this.logger.debug('파싱된 결과:', parsedResult);
         
+        // 응답 형식 검증
         if (!parsedResult.score || !parsedResult.feedback) {
-          throw new Error('응답에 필수 필드가 누락되었습니다');
+          return {
+            score: 0,
+            feedback: '평가 결과를 처리하는 중에 문제가 발생했어요. 다시 시도해주시겠어요?'
+          };
         }
 
         return parsedResult;
       } catch (parseError) {
         this.logger.error('JSON 파싱 실패. 원본 응답:', result);
         this.logger.error('파싱 에러:', parseError);
-        throw new Error('응답이 올바른 JSON 형식이 아닙니다. 프롬프트를 확인해주세요.');
+        
+        return {
+          score: 0,
+          feedback: '평가 결과를 처리하는 중에 문제가 발생했어요. 다시 시도해주시겠어요?'
+        };
       }
     } catch (error) {
-      this.logger.error(`Vision API 이미지 분석 중 오류 발생: ${error.message}`, error.stack);
-      throw error;
+      this.logger.error('Vision API 이미지 분석 중 오류 발생:', error);
+      
+      return {
+        score: 0,
+        feedback: '현재 그림을 평가하기 어려운 상황이에요. 잠시 후에 다시 시도해주세요.'
+      };
     }
   }
 
