@@ -226,7 +226,7 @@ export class TopicsService {
     return {
       topics: selectedTopics,
       select: 'false',
-      aiResponseExploreWav: audioBuffer,
+      aiResponseExploreWav: aiText,
       originalText: aiText
     };
   }
@@ -241,7 +241,7 @@ export class TopicsService {
     sessionId: string
   ): Promise<ExploreTopicsResponseDto> {
     const metadata = await this.handleTopicMetadata(selectedTopic, sessionId);
-    const aiResponse = `${selectedTopic}가 맞나요?`;
+    const aiText = `${selectedTopic}가 맞나요?`;
     
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
     // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
@@ -252,9 +252,9 @@ export class TopicsService {
     return {
       topics: selectedTopic,
       select: 'false',
-      aiResponseExploreWav: audioBuffer,
+      aiResponseExploreWav: aiText,
       metadata: metadata || undefined,
-      originalText: aiResponse
+      originalText: aiText
     };
   }
 
@@ -284,11 +284,11 @@ export class TopicsService {
       예시: "좋아요, 바나나는 곡선을 살리는 게 포인트예요. 한번 시작해볼까요?"
     `;
     
-    const aiResponse = await this.openAIService.generateText(confirmationPrompt);
-    this.logger.debug('AI 응답 생성 완료:', aiResponse);
+    const aiText = await this.openAIService.generateText(confirmationPrompt);
+    this.logger.debug('AI 응답 생성 완료:', aiText);
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
     const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
@@ -296,8 +296,8 @@ export class TopicsService {
     return {
       topics: selectedTopic,
       select: 'true',
-      aiResponseExploreWav: audioBuffer,
-      originalText: aiResponse
+      aiResponseExploreWav: aiText,
+      originalText: aiText
     };
   }
 
@@ -314,13 +314,13 @@ export class TopicsService {
     
     this.previousTopicsMap.set(dto.sessionId, selectedTopics);
     
-    const aiResponse = this.generateMessage(dto.name, selectedTopics, {
+    const aiText = this.generateMessage(dto.name, selectedTopics, {
       isTimedOut: dto.isTimedOut,
       isFirstRequest: false
     });
 
     // TODO: 테스트용 AI 음성 버퍼 반환
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
     
     // TODO: TTS 임시 비활성화 (비용 절감)
     const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
@@ -328,8 +328,8 @@ export class TopicsService {
     return {
       topics: selectedTopics,
       select: 'false',
-      aiResponseExploreWav: audioBuffer,
-      originalText: aiResponse
+      aiResponseExploreWav: aiText,
+      originalText: aiText
     };
   }
 
@@ -345,13 +345,13 @@ export class TopicsService {
     
     this.previousTopicsMap.set(dto.sessionId, selectedTopics);
     
-    const aiResponse = this.generateMessage(dto.name, selectedTopics, {
+    const aiText = this.generateMessage(dto.name, selectedTopics, {
       isTimedOut: dto.isTimedOut,
       isFirstRequest: false
     });
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-      // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+      // const audioBuffer = await this.openAIService.textToSpeech(aiText);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
     const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
@@ -359,8 +359,8 @@ export class TopicsService {
     return {
       topics: selectedTopics,
       select: 'false',
-      aiResponseExploreWav: audioBuffer,
-      originalText: aiResponse
+      aiResponseExploreWav: aiText,
+      originalText: aiText
     };
   }
 

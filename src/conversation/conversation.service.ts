@@ -215,7 +215,7 @@ export class ConversationService {
 
       // ✅ 결과 반환
       return {
-        aiResponseWelcomeWav: aiResponseWav, // 이미 압축된 base64 문자열
+        aiResponseWelcomeWav: aiResponse, // 이미 압축된 base64 문자열
         choice: false,
       };
     } catch (error) {
@@ -344,7 +344,7 @@ export class ConversationService {
         );
 
         return {
-          aiResponseWelcomeWav: Buffer.from(''),
+          aiResponseWelcomeWav: aiResponse,
           choice: wantsToDraw,
           wantedTopic: userInfo.wantedTopic
         };
@@ -372,7 +372,7 @@ export class ConversationService {
 
       // ✅ 결과 반환
       return {
-        aiResponseWelcomeWav: aiResponseWav,
+        aiResponseWelcomeWav: aiResponse,
         choice: wantsToDraw,
         wantedTopic: userInfo.wantedTopic
       };

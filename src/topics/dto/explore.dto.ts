@@ -89,7 +89,7 @@ export class ExploreTopicsResponseDto {
     type: 'string',
     format: 'binary'
   })
-  aiResponseExploreWav: Buffer;
+  aiResponseExploreWav: Buffer | String;
 
   @ApiProperty({
     description: 'AI 응답의 원본 텍스트',

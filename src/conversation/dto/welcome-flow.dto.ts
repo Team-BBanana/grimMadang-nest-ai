@@ -40,7 +40,7 @@ export class WelcomeFlowResponseDto {
       type: 'string',
       format: 'binary'
     })
-    aiResponseWelcomeWav: Buffer;
+    aiResponseWelcomeWav: string | Buffer;
     
     @ApiProperty({
       description: '그림 그리기 활동 선호도 표시',
