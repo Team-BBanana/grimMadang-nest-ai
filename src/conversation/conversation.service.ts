@@ -155,22 +155,21 @@ export class ConversationService {
   
       // 📝 프롬프트 생성
       let prompt = '';
+      if (hasAttendanceData) {
+  
+        prompt = `
+          ${previousConversations ? '\n이전 대화 내역:\n\n' + `${previousConversations}` + '\n\n' : ''}
+          
+          사용자 정보:
+          - 이름: ${welcomeFlowDto.name}
 
-      prompt = `
-        ${previousConversations ? '\n이전 대화 내역:\n\n' + `${previousConversations}` + '\n\n' : ''}
-        
-        사용자 정보:
-        - 이름: ${welcomeFlowDto.name}
-        
-        ${welcomeFlowDto.name}님께 이름을 포함하며 친근하고 따뜻한 환영 인사를 해주세요.
-        오늘도 함께 즐거운 시간을 보내자고 격려해주고, 이름을 자연스럽게 포함하여 대화하세요. 
-        인사말을 종료하면서 자연스럽게 그림 키워드를 한두개 제안해 주세요.
-        그림 키워드는 실생활에서 자주 접할 수 있거나 그리기 쉬운 것들로 해주세요:
-        예시: 고양이, 의자, 사과 등
-
-        중요: 총 발화는 50자 이내로 해주세요.
-      `;
-
+          위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
+          이름을 자연스럽게 포함하여 대화하세요.
+          인사말을 종료하면서 자연스럽게 그림 주제를 물어보세요.
+          총 발화는 50자 이내로 해주세요.
+        `;
+      }
+  
     this.logger.debug('Generated prompt:', prompt);
 
     // 🤖 AI 응답 생성 및 처리
@@ -221,47 +220,8 @@ export class ConversationService {
     }
   }
 
-  // 사용자 발화 분석 함수 추가
-  private analyzeUserInput(userText: string): { 
-    wantedTopic: string,
-    isPositive: boolean 
-  } {
-    // "다른거"를 제외한 실제 주제만 매칭하도록 수정
-    const wantToDrawMatch = userText.match(/(?:(?!다른).)*?\s*그리고\s*싶어/);
-    let wantedTopic = '';
-    let isPositive = false;
 
-    if (wantToDrawMatch && !userText.includes('다른')) {
-      // "그리고 싶어" 앞의 실제 주제만 추출
-      wantedTopic = wantToDrawMatch[0]
-        .replace(/\s*그리고\s*싶어$/, '')  // "그리고 싶어" 제거
-        .trim();
-      isPositive = true;
-    }
-
-    // "다른거"가 포함된 경우는 무조건 부정적으로 처리
-    if (userText.includes('다른')) {
-      isPositive = false;
-      wantedTopic = '';
-    }
-
-    return {
-      wantedTopic,
-      isPositive
-    };
-  }
-
-  // 이전 대화에서 제안된 주제들을 추출하는 함수 추가
-  private extractPreviousTopics(conversations: string): string[] {
-    const topics = new Set<string>();
-    const matches = conversations.matchAll(/그려보는 건 어떨까요\? ([^을를\s]+)[을를]/g);
-    for (const match of matches) {
-      topics.add(match[1]);
-    }
-    return Array.from(topics);
-  }
-
-  // 🌟 일반 대화 처리 메소드
+ // 🌟 일반 대화 처리 메소드
   // 메인 메소드2
   async processWelcomeFlow(
     welcomeFlowDto: WelcomeFlowRequestDto,
@@ -289,31 +249,36 @@ export class ConversationService {
 
       // 💬 이전 대화 내역 가져오기
       const previousConversations = await this.getPreviousConversations(welcomeFlowDto.sessionId);
-      const previousTopics = this.extractPreviousTopics(previousConversations);
-      const userInput = this.analyzeUserInput(userText);
 
+      // 📝 프롬프트 생성
       const prompt = `
         ${previousConversations ? '이전 대화 내역:\n' + previousConversations + '\n\n' : ''}
         사용자 정보:
-        - 이름: ${welcomeFlowDto.name}
-        - 현재 사용자 발화: ${userText}
+        - 이름: ${welcomeFlowDto.name} (해당 이름을 기억하여, 이름을 다시 물어보는 질문이 나오면 해당 이름을 다시 알려드리면서 대화를 이어가주세요.)
+        
+        현재 사용자 발화: ${userText} (해당 발화에 대한 답변이 1순위입니다. 다른 정보들은 해당 질문에 대한 답변을 자연스럽게 하기 위함입니다.)
 
-        ⚠️ 절대 규칙:
-        1. 총 발화는 30자 이내로 해주세요
-        2. 반드시 한국어로만 응답해주세요
-        3. 이모지는 사용하지 마세요
-        4. 사용자가 키워드에 긍정적인 응답을 한 경우에 다른 주제를 언급하지 마세요
-        5. 사용자가 키워드에 부정적인 응답을 한 경우, 이전에 제안했던 주제(${previousTopics.join(', ')})는 다시 제안하지 마세요
-
-        답변 형식:
-        ${userInput.isPositive 
-          ? `"${userInput.wantedTopic}를 좋아하시는군요, 좋습니다! 함께 ${userInput.wantedTopic}를 그려보아요!"` 
-          : '"다른 그림을 그려보고 싶으신가요? [새로운 주제]를 그려보는 건 어떨까요?"'}
-
-        <시스템 태그>
-        [INFO:{"wantedTopic":"${userInput.wantedTopic}"}]
-        [DRAW:${userInput.isPositive}]
-        </시스템 태그>
+        중요:
+        반드시 한국어로 응답해주세요. 영어는 절대 사용하지 마세요.
+        총 발화는 50자 이내로 해주세요
+        
+        위 대화 내역을 바탕으로 ${welcomeFlowDto.name}님과 자연스럽게 대화를 이어가주세요.
+        이전 대화 내용을 참고하여 맥락에 맞는 답변을 해주세요.
+        그리기 어려운 동물이나, 상상 속의 동물처럼 이미지 생성이 어려운 것들은 지양해 주세요.
+   
+        또한, 대화 내용에서 다음 정보들을 파악해주세요:
+        1. 사용자의 관심사 (예: 꽃, 풍경, 동물 등)
+        2. 사용자가 그리고 싶어하는 구체적인 키워드 (예: 바나나, 사과, 비행기 등)
+        3. 선호도 (그림 난이도, 스타일, 좋아하는 주제나 색상 등)
+        4. 개인정보 (현재 기분, 신체 상태, 그림 그리기 경험 등)
+        
+        파악된 정보는 답변 끝에 JSON 형식으로 추가해주세요:
+        예시: [INFO:{"interests":["꽃","나비"],"wantedTopic":"바나나","preferences":{"difficulty":"쉬움"},"personalInfo":{"mood":"즐거움"}}]
+        
+        마지막으로, 사용자의 그림 그리기 의향도 판단해주세요:
+        - 사용자가 그림 그리기에 긍정적이거나 관심을 보이면 답변 마지막에 "[DRAW:true]"를 추가해주세요.
+        - 사용자가 그림 그리기에 부정적이거나 관심이 없으면 답변 마지막에 "[DRAW:false]"를 추가해주세요.
+        - 답변은 자연스러워야 하며, [INFO]와 [DRAW] 태그는 맨 마지막에만 붙여주세요.
       `;
 
       this.logger.debug('Generated prompt:', prompt);
@@ -324,27 +289,23 @@ export class ConversationService {
 
       // 🔊 사용자 정보 추출 (원본 응답에서)
       const userInfo = this.extractUserInfo(aiResponse);
-      const wantsToDraw = /\[DRAW:true\]/.test(aiResponse);
+      
+      const wantsToDraw = /\[DRAW:true\]$/.test(aiResponse);
 
       this.logger.debug(`Wants to draw: ${wantsToDraw}`);
 
-      // 수정: 이모지와 태그만 제거하고 실제 텍스트는 유지
-      const cleanResponse = aiResponse
-        .replace(/\[INFO:.*?\]/g, '')  // INFO 태그 제거
-        .replace(/\[DRAW:.*?\]/g, '')  // DRAW 태그 제거
-        .replace(/[^\p{L}\p{N}\p{P}\s]/gu, '') // 이모지 제거
+      // 마지막 줄 제거 (JSON 태그가 있는 줄)
+      const cleanResponse = aiResponse.split('\n')
+        .filter(line => !line.includes('[INFO:') && !line.includes('[DRAW:'))
+        .join('\n')
         .trim();
-
+      
       this.logger.debug('Clean Response:', cleanResponse);
-
-      // TTS 실행 전 빈 문자열 체크
-      if (!cleanResponse) {
-        throw new Error('Clean response is empty');
-      }
+      
       // TODO: TTS 임시 비활성화 (비용 절감)
       const aiResponseWav = await this.openaiService.textToSpeech(cleanResponse);
       // const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      // this.logger.debug('Generated audio response');
+      this.logger.debug('Generated audio response');
 
       // 💾 대화 내용 저장 (추출된 정보 포함)
       await this.saveConversation(
