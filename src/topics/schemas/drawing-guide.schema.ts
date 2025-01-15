@@ -16,9 +16,9 @@ export class DrawingGuide {
 
   @Prop({ type: [Object], required: true })
   steps: {
-    단계: number;
-    타이틀: string;
-    지시문장: string;
+    step: number;
+    title: string;
+    instruction: string;
   }[];
 
   @Prop({ type: Object })

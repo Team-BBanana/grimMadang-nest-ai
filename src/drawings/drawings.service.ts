@@ -26,9 +26,9 @@ export class DrawingsService {
     score: number;
     feedback: string;
     nextStep?: {
-      단계: number;
-      타이틀: string;
-      지시문장: string;
+      step: number;
+      title: string;
+      instruction: string;
     };
   }> {
     // 해당 세션의 가이드라인 조회
@@ -61,7 +61,11 @@ export class DrawingsService {
 
     // 통과 점수를 넘긴 경우 다음 단계 정보 제공
     if (evaluation.score >= this.PASS_SCORE && currentStep < 7) {
-      const nextStep = drawingGuide.steps[currentStep];
+      const nextStep = {
+        step: drawingGuide.steps[currentStep].step,
+        title: drawingGuide.steps[currentStep].title,
+        instruction: drawingGuide.steps[currentStep].instruction
+      };
       return {
         ...evaluation,
         nextStep
@@ -83,7 +87,7 @@ export class DrawingsService {
     const evaluationPrompt = `
       가이드 이미지: ${guideImageUrl}
       사용자 이미지: ${userImageUrl}
-      현재 단계: ${currentStep}/7
+      현재 단계: ${currentStep}/5
 
       위 두 이미지를 비교하여 사용자의 그림을 평가해주세요.
       

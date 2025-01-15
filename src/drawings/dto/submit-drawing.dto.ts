@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, Min, Max, IsUrl } from 'class-validator';
+import { IsString, IsNumber, Min, Max } from 'class-validator';
 
 export class SubmitDrawingRequestDto {
   @ApiProperty({
@@ -10,53 +10,57 @@ export class SubmitDrawingRequestDto {
   sessionId: string;
 
   @ApiProperty({
-    description: '노인 이름',
-    example: '김할머니'
-  })
-  @IsString()
-  name: string;
-
-  @ApiProperty({
     description: '그림 주제',
-    example: '참외'
+    example: '바나나'
   })
   @IsString()
   topic: string;
 
   @ApiProperty({
-    description: '그리기 단계 (1: 기본 형태, 2: 세부 묘사)',
-    example: 1
+    description: '사용자가 그린 그림의 이미지 URL',
+    example: 'https://bbanana.s3.ap-northeast-2.amazonaws.com/canvas-image-step-1-8880922c-a73d-4818-a183-092d8d4bd2f4-MmMv5EdN.png'
+  })
+  @IsString()
+  imageUrl: string;
+
+  @ApiProperty({
+    description: '현재 진행 단계 (1 ~ 5단계 사이)',
+    example: 1,
+    minimum: 1,
+    maximum: 5
   })
   @IsNumber()
   @Min(1)
-  @Max(2)
-  phase: number;
-
-  @ApiProperty({
-    description: '이미지 URL (S3)',
-    example: 'https://s3.example.com/drawings/abc123.jpg'
-  })
-  @IsUrl()
-  imageData: string;
+  @Max(5)
+  currentStep: number;
 }
 
 export class SubmitDrawingResponseDto {
   @ApiProperty({
-    description: 'AI 평가 점수 (0-100)',
+    description: '평가 점수 (0-100)',
     example: 85
   })
   score: number;
 
   @ApiProperty({
-    description: '통과 여부 (80점 이상)',
+    description: '평가 피드백',
+    example: '기본 형태를 잘 잡았어요! 다음 단계로 넘어가볼까요?'
+  })
+  feedback: string;
+
+  @ApiProperty({
+    description: '통과 여부 (40점 이상)',
     example: true
   })
   passed: boolean;
 
   @ApiProperty({
-    description: 'AI 피드백 음성 데이터 (MP3)',
-    type: 'string',
-    format: 'binary'
+    description: '다음 단계 정보 (통과한 경우에만 제공)',
+    required: false
   })
-  aiFeedbackWav: Buffer;
+  nextStep?: {
+    step: number;
+    title: string;
+    instruction: string;
+  };
 } 
