@@ -6,6 +6,7 @@ import { Model } from 'mongoose';
 // 📝 스키마와 DTO 타입 임포트
 import { ExploreTopicsRequestDto, ExploreTopicsResponseDto, TopicImageMetadataResponseDto } from './dto/explore.dto';
 import { TopicImage, TopicImageDocument } from './schemas/topic-image.schema';
+import { DrawingGuide, DrawingGuideDocument } from './schemas/drawing-guide.schema';
 
 // 🤖 OpenAI 서비스 임포트
 import { OpenAIService } from '../openai/openai.service';
@@ -36,6 +37,7 @@ export class TopicsService {
   constructor(
     @InjectModel('Conversation') private conversationModel: Model<ConversationDocument>,
     @InjectModel(TopicImage.name) private topicImageModel: Model<TopicImageDocument>,
+    @InjectModel(DrawingGuide.name) private drawingGuideModel: Model<DrawingGuideDocument>,
     private readonly openAIService: OpenAIService,
     private readonly s3Service: S3Service
   ) {}
@@ -96,7 +98,12 @@ export class TopicsService {
     
     // 🎯 사용자가 특정 주제를 선택한 경우 (확정은 아직)
     if (analysis.selectedTopic && !analysis.confirmedTopic) {
-      const response = await this.handleTopicSelection(analysis.selectedTopic, dto.name, dto.isTimedOut);
+      const response = await this.handleTopicSelection(
+        analysis.selectedTopic, 
+        dto.name, 
+        dto.isTimedOut,
+        dto.sessionId
+      );
       
       const nextOrder = lastConversation ? lastConversation.conversationOrder + 1 : 1;
       
@@ -210,10 +217,10 @@ export class TopicsService {
     this.logger.log(aiText);
 
     // TODO: 실 테스트용 AI 음성 버퍼 반환
-    const audioBuffer = await this.openAIService.textToSpeech(aiText);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     // 📝 응답 반환
     return {
@@ -230,16 +237,17 @@ export class TopicsService {
   private async handleTopicSelection(
     selectedTopic: string,
     name: string,
-    isTimedOut: string
+    isTimedOut: string,
+    sessionId: string
   ): Promise<ExploreTopicsResponseDto> {
-    const metadata = await this.handleTopicMetadata(selectedTopic);
+    const metadata = await this.handleTopicMetadata(selectedTopic, sessionId);
     const aiResponse = `${selectedTopic}가 맞나요?`;
     
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -278,10 +286,10 @@ export class TopicsService {
     this.logger.debug('AI 응답 생성 완료:', aiResponse);
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
@@ -310,10 +318,10 @@ export class TopicsService {
     });
 
     // TODO: 테스트용 AI 음성 버퍼 반환
-    const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
     
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,
@@ -341,10 +349,10 @@ export class TopicsService {
     });
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
-      const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+      // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
 
     // TODO: TTS 임시 비활성화 (비용 절감)
-    // const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopics,
@@ -615,8 +623,6 @@ export class TopicsService {
 
   // 🎨 주제 메타데이터 관련 함수들
   /**
-  // 🎨 주제 메타데이터 관련 함수들
-  /**
    * 🎨 그리기 가이드라인 생성
    */
   private async generateGuidelines(imageUrl: string): Promise<string> {
@@ -626,7 +632,7 @@ export class TopicsService {
       위 이미지를 보고 초보자도 쉽게 따라 그릴 수 있는 단계별 가이드라인을 JSON 형식으로 생성해주세요.
       
       중요한 규칙:
-      1. 반드시 5단계로 구성해주세요.
+      1. 단계로 랜덤으로 3~5 단계 사이로 구성해주세요.
       2. 각 단계는 다음 형식을 따라야 합니다:
         {
           "step": number,
@@ -650,13 +656,11 @@ export class TopicsService {
    */
   private async generateTopicImage(topic: string): Promise<string> {
     const imagePrompt = `
-      주제: ${topic}
-      스타일: 간단하고 명확한 선화 스타일, 초보자도 따라 그리기 쉬운 기본적인 형태
-      특징: 
-      - 주요 형태와 구도가 명확히 보이도록
-      - 단순화된 형태로 표현
-      - 흑백 또는 연한 색상으로 표현
-      - 그림자나 질감 표현은 최소화
+      “심플한 2D 카툰 스타일의 빨간 사과 일러스트를 생성해 줘.
+      사과는 선명한 빨간색으로, 꼭지와 초록색 잎이 달려 있고,
+      테두리는 깔끔한 검은색 선으로 표현해 줘.
+      배경은 흰색으로 단순하게 유지하고,
+      ${topic} 외에는 아무 것도 그리지 말아줘.”
     `;
 
     const dallEImageUrl = await this.openAIService.generateImage(imagePrompt);
@@ -710,7 +714,11 @@ export class TopicsService {
   /**
    * 🔄 메타데이터 처리
    */
-  private async handleTopicMetadata(topic: string): Promise<{ imageUrl: string; guidelines: string; topic: string } | null> {
+  private async handleTopicMetadata(
+    topic: string,
+    sessionId: string
+  ): Promise<{ imageUrl: string; guidelines: string; topic: string } | null> {
+
     // 테스트를 위해 하드코딩된 메타데이터 반환
     // return {
     //   topicName: topic,
@@ -721,6 +729,16 @@ export class TopicsService {
     const existingMetadata = await this.checkTopicMetadata(topic);
     if (existingMetadata) {
       const guidelines = await this.generateGuidelines(existingMetadata.imageUrl);
+      const parsedGuidelines = JSON.parse(guidelines);
+      
+      // DrawingGuide 저장
+      await this.drawingGuideModel.create({
+        sessionId: sessionId,
+        topic,
+        imageUrl: existingMetadata.imageUrl,
+        steps: parsedGuidelines
+      });
+
       const response = new TopicImageMetadataResponseDto();
       response.imageUrl = existingMetadata.imageUrl;
       response.guidelines = guidelines;
@@ -741,7 +759,16 @@ export class TopicsService {
 
     // 저장된 이미지 기반으로 가이드라인 생성
     const guidelines = await this.generateGuidelines(savedMetadata.imageUrl);
+    const parsedGuidelines = JSON.parse(guidelines);
     
+    // DrawingGuide 저장
+    await this.drawingGuideModel.create({
+      sessionId: sessionId,
+      topic,
+      imageUrl: savedMetadata.imageUrl,
+      steps: parsedGuidelines
+    });
+
     const response = new TopicImageMetadataResponseDto();
     response.imageUrl = savedMetadata.imageUrl;
     response.guidelines = guidelines;
