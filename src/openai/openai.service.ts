@@ -205,71 +205,108 @@ export class OpenAIService {
     systemPrompt: string,
     userPrompt: string
   ): Promise<{ score: number; feedback: string }> {
-    try {
-      this.logger.debug('Vision API로 이미지 분석 시작');
+    const MAX_RETRIES = 3;  // 최대 재시도 횟수
+    let retryCount = 0;
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: userPrompt },
-              {
-                type: 'image_url',
-                image_url: { 
-                  url: guideImageUrl,
-                  detail: "high"  
-                }
-              },
-              {
-                type: 'image_url',
-                image_url: { 
-                  url: userImageUrl,
-                  detail: "high"  
-                }
-              }
-            ]
-          }
-        ],
-      });
-
-      const result = response.choices[0]?.message?.content;
-      if (!result) {
-        throw new Error('이미지 분석 결과가 없습니다');
-      }
-
-      this.logger.debug('Raw Vision API 응답:', result);
-      
+    while (retryCount < MAX_RETRIES) {
       try {
-        // 응답 문자열 정리
-        const cleanedResult = result
-          .replace(/```(?:json)?\n|\n```/g, '') // 코드 블록 제거
-          .replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, ''); // 공백 문자 제거
-        
-        this.logger.debug('정리된 응답:', cleanedResult);
-        
-        const parsedResult = JSON.parse(cleanedResult);
-        this.logger.debug('파싱된 결과:', parsedResult);
-        
-        if (!parsedResult.score || !parsedResult.feedback) {
-          throw new Error('응답에 필수 필드가 누락되었습니다');
+        this.logger.debug(`Vision API 분석 시도 ${retryCount + 1}/${MAX_RETRIES}`);
+
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: userPrompt },
+                {
+                  type: 'image_url',
+                  image_url: { 
+                    url: guideImageUrl,
+                    detail: "high"  
+                  }
+                },
+                {
+                  type: 'image_url',
+                  image_url: { 
+                    url: userImageUrl,
+                    detail: "high"  
+                  }
+                }
+              ]
+            }
+          ],
+        });
+
+        const result = response.choices[0]?.message?.content;
+        if (!result) {
+          this.logger.warn(`응답이 비어있음 (시도 ${retryCount + 1}/${MAX_RETRIES})`);
+          retryCount++;
+          continue;
         }
 
-        return parsedResult;
-      } catch (parseError) {
-        this.logger.error('JSON 파싱 실패. 원본 응답:', result);
-        this.logger.error('파싱 에러:', parseError);
-        throw new Error('응답이 올바른 JSON 형식이 아닙니다. 프롬프트를 확인해주세요.');
+        this.logger.debug('Raw Vision API 응답:', result);
+        
+        // 응답에서 특정 에러 메시지 패턴 확인
+        if (result.includes('지원되지 않습니다') || result.includes('처리할 수 없습니다')) {
+          this.logger.warn(`API 제한 응답 (시도 ${retryCount + 1}/${MAX_RETRIES}):`, result);
+          retryCount++;
+          continue;
+        }
+        
+        try {
+          // 응답 문자열 정리
+          const cleanedResult = result
+            .replace(/```(?:json)?\n|\n```/g, '') // 코드 블록 제거
+            .replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, ''); // 공백 문자 제거
+          
+          this.logger.debug('정리된 응답:', cleanedResult);
+          
+          const parsedResult = JSON.parse(cleanedResult);
+          
+          // 응답 형식 검증
+          if (!parsedResult.score || !parsedResult.feedback) {
+            this.logger.warn(`필수 필드 누락 (시도 ${retryCount + 1}/${MAX_RETRIES}):`, parsedResult);
+            retryCount++;
+            continue;
+          }
+
+          // 성공적인 응답을 받으면 바로 반환
+          this.logger.debug('성공적인 응답 받음:', parsedResult);
+          return parsedResult;
+
+        } catch (parseError) {
+          this.logger.warn(`JSON 파싱 실패 (시도 ${retryCount + 1}/${MAX_RETRIES}). 원본 응답:`, result);
+          this.logger.warn('파싱 에러:', parseError);
+          retryCount++;
+          continue;
+        }
+      } catch (error) {
+        this.logger.warn(`API 호출 실패 (시도 ${retryCount + 1}/${MAX_RETRIES}):`, error);
+        retryCount++;
+        
+        if (retryCount === MAX_RETRIES) {
+          return {
+            score: 0,
+            feedback: '현재 그림을 평가하기 어려운 상황이에요. 잠시 후에 다시 시도해주세요.'
+          };
+        }
+
+        // 재시도 전 잠시 대기
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
       }
-    } catch (error) {
-      this.logger.error(`Vision API 이미지 분석 중 오류 발생: ${error.message}`, error.stack);
-      throw error;
     }
+
+    // 모든 재시도 실패 시
+    return {
+      score: 0,
+      feedback: '죄송합니다. 지금은 그림을 평가하기 어려워요. 잠시 후에 다시 시도해주세요.'
+    };
   }
 
   
