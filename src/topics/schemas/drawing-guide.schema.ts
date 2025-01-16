@@ -14,17 +14,32 @@ export class DrawingGuide {
   @Prop({ required: true })
   imageUrl: string;
 
-  @Prop({ type: [Object], required: true })
-  steps: {
-    step: number;
-    title: string;
-    instruction: string;
+  @Prop({ 
+    type: [{ 
+      step: Number, 
+      title: String, 
+      instruction: String 
+    }], 
+    required: true 
+  })
+  steps: { 
+    step: number; 
+    title: string; 
+    instruction: string 
   }[];
 
-  @Prop({ type: Object })
-  evaluation?: {
-    score: number;
-    feedback: string;
+  @Prop({ 
+    type: { 
+      score: Number, 
+      feedback: String, 
+      timestamp: Date 
+    }, 
+    required: false 
+  })
+  evaluation?: { 
+    score: number; 
+    feedback: string; 
+    timestamp: Date 
   };
 }
 

@@ -868,66 +868,21 @@ export class TopicsService {
   }
 
   /**
-   * 🎨 주제 이미지 생성
+   * 🎨 주제 이미지 생성 - 기존 이미지 참고하여 생성
    */ 
   private async generateTopicImage(topic: string): Promise<string> {
     this.logger.debug("생성 할 이미지의 토픽 : " + topic);
 
-    // 1단계: 주제 상세 설명 생성
-    const detailPrompt = `
-      당신은 이미지 생성을 위한 상세 설명을 작성하는 전문가입니다.
-      ${topic}에 대한 상세한 설명을 작성해주세요.
-      설명에는 다음 내용이 포함되어야 합니다:
-      - 주제의 기본적인 형태와 특징
-      - 주요 시각적 요소
-      - 색상과 질감
-      - 전체적인 분위기
-      설명은 구체적이고 명확해야 하며, 시각화하기 쉽도록 작성해주세요.
-    `;
-    const detailedDescription = await this.openAIService.generateText(detailPrompt);
-    this.logger.debug("생성된 상세 설명:", detailedDescription);
+    // 바나나 이미지 조회
+    const referenceImage = await this.topicImageModel.findOne({ topic: '바나나' }).exec();
+    if (!referenceImage) {
+      throw new Error('참고할 바나나 이미지를 찾을 수 없음');
+    }
 
-    // 2단계: 3단계 프롬프트 구조화
-    const structurePrompt = `
-      아래 상세 설명을 3단계 프롬프트 구조로 변환해주세요:
-      ${detailedDescription}
-
-      1) 기본 프롬프트 - 핵심 주제와 의도
-      2) 이미지 스타일 - 시각적 스타일, 기법, 톤
-      3) 상세 설명 - 구체적인 요소와 제한사항
-
-      응답은 각 단계별로 명확하게 구분하여 작성해주세요.
-    `;
-    const structuredPrompt = await this.openAIService.generateText(structurePrompt);
-    this.logger.debug("구조화된 프롬프트:", structuredPrompt);
-
-    // 3단계: 최종 이미지 생성
+    // 최종 이미지 생성
     const finalPrompt = `
-      ${structuredPrompt}
-
-      절대적 제한사항:
-      1. 구도:
-         - ${topic} 하나만 정중앙에 배치
-         - 여백 최소화 (프레임을 꽉 채우게)
-         - 정면 또는 3/4 각도에서 보기
-
-      2. 스타일:
-         - 매우 두꺼운 검은색 외곽선 (5-7px)
-         - 단일 색상으로 채색 (그라데이션 없음)
-         - 밝고 선명한 원색 사용
-         - 2D 일러스트레이션 스타일
-
-      3. 배경 및 효과:
-         - 순수한 흰색 배경 (#FFFFFF)만 사용
-         - 그림자, 반사, 질감 효과 절대 금지
-         - 장식이나 추가 요소 절대 금지
-         - 배경 패턴이나 그라데이션 절대 금지
-
-      4. 표현 제한:
-         - 복잡한 디테일 절대 금지
-         - 사실적 표현 절대 금지
-         - 3D 효과 절대 금지
-         - 질감이나 패턴 절대 금지
+      해당 이미지: ${referenceImage.imageUrl}
+      해당 사진과 같은 느낌으로 ${topic} 그림 이미지 생성해줘, 단 조금 따라 그릴 수 있게 심플하고 간단하게 그려줘, 그리고 색감도 넣어줘
     `;
 
     const imageUrl = await this.openAIService.generateImage(finalPrompt);
@@ -982,140 +937,140 @@ export class TopicsService {
   }
 
   /**
-   * 🔄 메타데이터 처리
+   * 🔄 메타데이터 처리 - 현재 사용하지 않음
    */
-  private async handleTopicMetadata(
-    topic: string,
-    sessionId: string
-  ): Promise<{ imageUrl: string; guidelines: string; topic: string } | null> {
+  // private async handleTopicMetadata(
+  //   topic: string,
+  //   sessionId: string
+  // ): Promise<{ imageUrl: string; guidelines: string; topic: string } | null> {
 
-    // 테스트를 위해 하드코딩된 메타데이터 반환
-    // return {
-    //   topicName: topic,
-    //   imageUrl: 'https://bbanana.s3.ap-northeast-2.amazonaws.com/canvas-image-step-1-8880922c-a73d-4818-a183-092d8d4bd2f4-MmMv5EdN.png',
-    //   description: `${topic}는 기본적인 형태를 잘 살리는 게 포인트예요. 한번 시작해볼까요?`
-    // };
+  //   // 테스트를 위해 하드코딩된 메타데이터 반환
+  //   // return {
+  //   //   topicName: topic,
+  //   //   imageUrl: 'https://bbanana.s3.ap-northeast-2.amazonaws.com/canvas-image-step-1-8880922c-a73d-4818-a183-092d8d4bd2f4-MmMv5EdN.png',
+  //   //   description: `${topic}는 기본적인 형태를 잘 살리는 게 포인트예요. 한번 시작해볼까요?`
+  //   // };
 
-    const existingMetadata = await this.checkTopicMetadata(topic);
-    if (existingMetadata) {
-      try {
-        const guidelines = await this.generateGuidelines(existingMetadata.imageUrl);
+  //   const existingMetadata = await this.checkTopicMetadata(topic);
+  //   if (existingMetadata) {
+  //     try {
+  //       const guidelines = await this.generateGuidelines(existingMetadata.imageUrl);
         
-        // 마크다운 포맷팅 제거 및 공백 정리
-        const cleanedGuidelines = guidelines.replace(/```(?:json)?\n|\n```/g, '').trim();
+  //       // 마크다운 포맷팅 제거 및 공백 정리
+  //       const cleanedGuidelines = guidelines.replace(/```(?:json)?\n|\n```/g, '').trim();
         
-        // JSON 파싱 시도
-        let parsedGuidelines;
-        try {
-          parsedGuidelines = JSON.parse(cleanedGuidelines);
-        } catch (parseError) {
-          this.logger.error('가이드라인 JSON 파싱 실패:', parseError);
-          this.logger.error('원본 가이드라인:', guidelines);
-          this.logger.error('정리된 가이드라인:', cleanedGuidelines);
+  //       // JSON 파싱 시도
+  //       let parsedGuidelines;
+  //       try {
+  //         parsedGuidelines = JSON.parse(cleanedGuidelines);
+  //       } catch (parseError) {
+  //         this.logger.error('가이드라인 JSON 파싱 실패:', parseError);
+  //         this.logger.error('원본 가이드라인:', guidelines);
+  //         this.logger.error('정리된 가이드라인:', cleanedGuidelines);
           
-          // 기본 가이드라인 사용
-          parsedGuidelines = [
-            {
-              "step": 1,
-              "title": "기본 형태 잡기",
-              "instruction": "전체적인 형태를 가볍게 스케치해보세요."
-            },
-            {
-              "step": 2,
-              "title": "세부 묘사하기",
-              "instruction": "특징적인 부분을 자세히 그려보세요."
-            },
-            {
-              "step": 3,
-              "title": "완성하기",
-              "instruction": "잘 그리셨어요. 이제 마음에 드는 색으로 칠해보세요."
-            }
-          ];
-        }
+  //         // 기본 가이드라인 사용
+  //         parsedGuidelines = [
+  //           {
+  //             "step": 1,
+  //             "title": "기본 형태 잡기",
+  //             "instruction": "전체적인 형태를 가볍게 스케치해보세요."
+  //           },
+  //           {
+  //             "step": 2,
+  //             "title": "세부 묘사하기",
+  //             "instruction": "특징적인 부분을 자세히 그려보세요."
+  //           },
+  //           {
+  //             "step": 3,
+  //             "title": "완성하기",
+  //             "instruction": "잘 그리셨어요. 이제 마음에 드는 색으로 칠해보세요."
+  //           }
+  //         ];
+  //       }
       
-        // DrawingGuide 저장
-        await this.drawingGuideModel.create({
-          sessionId: sessionId,
-          topic,
-          imageUrl: existingMetadata.imageUrl,
-          steps: parsedGuidelines
-        });
+  //       // DrawingGuide 저장
+  //       await this.drawingGuideModel.create({
+  //         sessionId: sessionId,
+  //         topic,
+  //         imageUrl: existingMetadata.imageUrl,
+  //         steps: parsedGuidelines
+  //       });
 
-        const response = new TopicImageMetadataResponseDto();
-        response.imageUrl = existingMetadata.imageUrl;
-        response.guidelines = JSON.stringify(parsedGuidelines);
-        response.topic = topic;
-        return response;
-      } catch (error) {
-        this.logger.error(`메타데이터 처리 중 오류 발생: ${error.message}`, error.stack);
-        return null;
-      }
-    }
+  //       const response = new TopicImageMetadataResponseDto();
+  //       response.imageUrl = existingMetadata.imageUrl;
+  //       response.guidelines = JSON.stringify(parsedGuidelines);
+  //       response.topic = topic;
+  //       return response;
+  //     } catch (error) {
+  //       this.logger.error(`메타데이터 처리 중 오류 발생: ${error.message}`, error.stack);
+  //       return null;
+  //     }
+  //   }
 
-    this.logger.log('메타데이터 생성 시작');
+  //   this.logger.log('메타데이터 생성 시작');
     
-    try {
-      // 이미지 먼저 생성
-      const imageUrl = await this.generateTopicImage(topic);
+  //   try {
+  //     // 이미지 먼저 생성
+  //     const imageUrl = await this.generateTopicImage(topic);
       
-      // 이미지 저장
-      const savedMetadata = await this.saveTopicMetadata(topic, imageUrl);
-      if (!savedMetadata) {
-        return null;
-      }
+  //     // 이미지 저장
+  //     const savedMetadata = await this.saveTopicMetadata(topic, imageUrl);
+  //     if (!savedMetadata) {
+  //       return null;
+  //     }
 
-      // 저장된 이미지 기반으로 가이드라인 생성
-      const guidelines = await this.generateGuidelines(savedMetadata.imageUrl);
+  //     // 저장된 이미지 기반으로 가이드라인 생성
+  //     const guidelines = await this.generateGuidelines(savedMetadata.imageUrl);
       
-      // 마크다운 포맷팅 제거 및 공백 정리
-      const cleanedGuidelines = guidelines.replace(/```(?:json)?\n|\n```/g, '').trim();
+  //     // 마크다운 포맷팅 제거 및 공백 정리
+  //     const cleanedGuidelines = guidelines.replace(/```(?:json)?\n|\n```/g, '').trim();
       
-      // JSON 파싱 시도
-      let parsedGuidelines;
-      try {
-        parsedGuidelines = JSON.parse(cleanedGuidelines);
-      } catch (parseError) {
-        this.logger.error('가이드라인 JSON 파싱 실패:', parseError);
-        this.logger.error('원본 가이드라인:', guidelines);
-        this.logger.error('정리된 가이드라인:', cleanedGuidelines);
+  //     // JSON 파싱 시도
+  //     let parsedGuidelines;
+  //     try {
+  //       parsedGuidelines = JSON.parse(cleanedGuidelines);
+  //     } catch (parseError) {
+  //       this.logger.error('가이드라인 JSON 파싱 실패:', parseError);
+  //       this.logger.error('원본 가이드라인:', guidelines);
+  //       this.logger.error('정리된 가이드라인:', cleanedGuidelines);
         
-        // 기본 가이드라인 사용
-        parsedGuidelines = [
-          {
-            "step": 1,
-            "title": "기본 형태 잡기",
-            "instruction": "전체적인 형태를 가볍게 스케치해보세요."
-          },
-          {
-            "step": 2,
-            "title": "세부 묘사하기",
-            "instruction": "특징적인 부분을 자세히 그려보세요."
-          },
-          {
-            "step": 3,
-            "title": "완성하기",
-            "instruction": "잘 그리셨어요. 이제 마음에 드는 색으로 칠해보세요."
-          }
-        ];
-      }
+  //       // 기본 가이드라인 사용
+  //       parsedGuidelines = [
+  //         {
+  //           "step": 1,
+  //           "title": "기본 형태 잡기",
+  //           "instruction": "전체적인 형태를 가볍게 스케치해보세요."
+  //         },
+  //         {
+  //           "step": 2,
+  //           "title": "세부 묘사하기",
+  //           "instruction": "특징적인 부분을 자세히 그려보세요."
+  //         },
+  //         {
+  //           "step": 3,
+  //           "title": "완성하기",
+  //           "instruction": "잘 그리셨어요. 이제 마음에 드는 색으로 칠해보세요."
+  //         }
+  //       ];
+  //     }
       
-      // DrawingGuide 저장
-      await this.drawingGuideModel.create({
-        sessionId: sessionId,
-        topic,
-        imageUrl: savedMetadata.imageUrl,
-        steps: parsedGuidelines
-      });
+  //     // DrawingGuide 저장
+  //     await this.drawingGuideModel.create({
+  //       sessionId: sessionId,
+  //       topic,
+  //       imageUrl: savedMetadata.imageUrl,
+  //       steps: parsedGuidelines
+  //     });
 
-      const response = new TopicImageMetadataResponseDto();
-      response.imageUrl = savedMetadata.imageUrl;
-      response.guidelines = JSON.stringify(parsedGuidelines);
-      response.topic = topic;
-      return response;
-    } catch (error) {
-      this.logger.error(`메타데이터 처리 중 오류 발생: ${error.message}`, error.stack);
-      return null;
-    }
-  }
+  //     const response = new TopicImageMetadataResponseDto();
+  //     response.imageUrl = savedMetadata.imageUrl;
+  //     response.guidelines = JSON.stringify(parsedGuidelines);
+  //     response.topic = topic;
+  //     return response;
+  //   } catch (error) {
+  //     this.logger.error(`메타데이터 처리 중 오류 발생: ${error.message}`, error.stack);
+  //     return null;
+  //   }
+  // }
 
 } 
