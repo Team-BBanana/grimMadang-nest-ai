@@ -30,7 +30,7 @@ export class TopicsService {
   private dynamicTopicGroups: Record<string, string[]> = {};
 
   private readonly DEFAULT_GROUP = {
-    "쉬운 그림": ["사과", "바나나", "배"]
+    '기본': ['사과', '바나나', '포도']
   };
 
   // 🔧 서비스 생성자 - 필요한 모델과 서비스 주입
@@ -464,15 +464,80 @@ export class TopicsService {
     dto: ExploreTopicsRequestDto,
     previousTopics: string[]
   ): Promise<ExploreTopicsResponseDto> {
-    const currentGroup = Object.keys(this.dynamicTopicGroups)[0];
-    const selectedTopics = this.getTopicsFromGroup(currentGroup, previousTopics);
-    
-    this.previousTopicsMap.set(dto.sessionId, selectedTopics);
-    
-    const aiText = this.generateMessage(dto.name, selectedTopics, {
-      isTimedOut: dto.isTimedOut,
-      isFirstRequest: false
-    });
+    try {
+      // 1. 사용자 니즈 데이터 확인
+      const userNeeds = await this.analyzeUserNeeds(dto.sessionId);
+      this.logger.debug('사용자 니즈 분석 결과:', userNeeds);
+
+      // 2. 전체 토픽 이미지 데이터 조회
+      const allTopics = await this.topicImageModel.find().distinct('topic');
+      this.logger.debug('조회된 전체 토픽:', allTopics);
+
+      // 3. AI를 통한 연관성 분석 및 추천
+      const prompt = `
+      사용자의 니즈와 가능한 토픽 목록을 분석하여 가장 적합한 3가지 토픽을 추천해주세요.
+      
+      사용자 니즈:
+      ${JSON.stringify(userNeeds, null, 2)}
+      
+      가능한 토픽 목록:
+      ${JSON.stringify(allTopics, null, 2)}
+      
+      다음 조건을 고려하여 추천해주세요:
+      1. 사용자의 관심사와 연관성
+      2. 그리기 난이도의 적절성
+      3. 이전에 추천된 토픽(${previousTopics.join(', ')}) 제외
+      
+      응답 형식:
+      반드시 아래와 같은 JSON 배열 형식으로만 응답해주세요. 다른 설명이나 텍스트는 포함하지 마세요.
+      정확히 3개의 토픽을 포함해야 합니다.
+      ["토픽1", "토픽2", "토픽3"]
+
+      주의사항:
+      1. 빈 배열을 반환하지 마세요.
+      2. 반드시 3개의 토픽을 추천해주세요.
+      3. 적절한 토픽을 찾을 수 없다면, 가능한 토픽 목록에서 무작위로 3개를 선택하거나
+      4. 그것도 없다면, 사용자의 니즈로 새롭게 토픽을 생성해서 추천해주세요.
+      `;
+
+      const recommendationResponse = await this.openAIService.generateAnalysis(prompt);
+      let selectedTopics: string[];
+      
+      try {
+        // 응답에서 JSON 부분만 추출
+        const jsonMatch = recommendationResponse.match(/\[.*\]/);
+        if (!jsonMatch) {
+          this.logger.error('JSON 형식을 찾을 수 없음. AI 응답:', recommendationResponse);
+          throw new Error('JSON 형식을 찾을 수 없음');
+        }
+        
+        const parsedArray = JSON.parse(jsonMatch[0]);
+        if (!Array.isArray(parsedArray)) {
+          this.logger.error('배열이 아닌 형식. AI 응답:', recommendationResponse);
+          throw new Error('Invalid format: not an array');
+        }
+
+        // 빈 배열이거나 3개가 아닌 경우 기본 토픽 사용
+        if (parsedArray.length !== 3) {
+          this.logger.warn('토픽이 3개가 아님. AI 응답:', recommendationResponse);
+          selectedTopics = this.getDefaultTopics(allTopics, previousTopics);
+        } else {
+          selectedTopics = parsedArray;
+        }
+      } catch (error) {
+        this.logger.error('토픽 추천 파싱 실패:', error);
+        this.logger.error('AI 응답:', recommendationResponse);
+        // 기본 토픽 사용
+        selectedTopics = this.getDefaultTopics(allTopics, previousTopics);
+      }
+
+      // 추천 결과 캐싱
+      this.previousTopicsMap.set(dto.sessionId, selectedTopics);
+      
+      const aiText = this.generateMessage(dto.name, selectedTopics, {
+        isTimedOut: dto.isTimedOut,
+        isFirstRequest: false
+      });
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
       // const audioBuffer = await this.openAIService.textToSpeech(aiText);
@@ -480,12 +545,16 @@ export class TopicsService {
     // TODO: TTS 임시 비활성화 (비용 절감)
     const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
-    return {
-      topics: selectedTopics,
-      select: 'false',
-      aiResponseExploreWav: aiText,
-      originalText: aiText
-    };
+      return {
+        topics: selectedTopics,
+        select: 'false',
+        aiResponseExploreWav: aiText,
+        originalText: aiText
+      };
+    } catch (error) {
+      this.logger.error('주제 추천 처리 중 오류 발생:', error);
+      throw error;
+    }
   }
 
   // 🤖 AI 관련 유틸리티 함수들
@@ -1077,5 +1146,88 @@ export class TopicsService {
   //     return null;
   //   }
   // }
+
+  /**
+   * 🔍 사용자 니즈 분석
+   */
+  private async analyzeUserNeeds(sessionId: string): Promise<any> {
+    try {
+      // 최근 대화 내역에서 사용자 정보 추출
+      const recentConversations = await this.conversationModel
+        .find({ sessionId })
+        .sort({ conversationOrder: -1 })
+        .limit(5)
+        .select('userInfo interests preferences personalInfo')
+        .lean();
+
+      // 니즈 데이터 통합
+      const needs = {
+        interests: new Set<string>(),
+        preferences: {
+          difficulty: new Set<string>(),
+          style: new Set<string>(),
+          subjects: new Set<string>(),
+        },
+        personalInfo: {
+          mood: new Set<string>(),
+          physicalCondition: new Set<string>(),
+          experience: new Set<string>(),
+        }
+      };
+
+      recentConversations.forEach(conv => {
+        if (conv.interests) {
+          conv.interests.forEach(interest => needs.interests.add(interest));
+        }
+        if (conv.preferences) {
+          Object.entries(conv.preferences).forEach(([key, value]) => {
+            if (needs.preferences[key] && value) {
+              needs.preferences[key].add(value);
+            }
+          });
+        }
+        if (conv.personalInfo) {
+          Object.entries(conv.personalInfo).forEach(([key, value]) => {
+            if (needs.personalInfo[key] && value) {
+              needs.personalInfo[key].add(value);
+            }
+          });
+        }
+      });
+
+      // Set을 Array로 변환
+      return {
+        interests: Array.from(needs.interests),
+        preferences: {
+          difficulty: Array.from(needs.preferences.difficulty),
+          style: Array.from(needs.preferences.style),
+          subjects: Array.from(needs.preferences.subjects),
+        },
+        personalInfo: {
+          mood: Array.from(needs.personalInfo.mood),
+          physicalCondition: Array.from(needs.personalInfo.physicalCondition),
+          experience: Array.from(needs.personalInfo.experience),
+        }
+      };
+    } catch (error) {
+      this.logger.error('사용자 니즈 분석 중 오류 발생:', error);
+      return {
+        interests: [],
+        preferences: {},
+        personalInfo: {}
+      };
+    }
+  }
+
+  /**
+   * 🎨 기본 토픽 선택
+   */
+  private getDefaultTopics(allTopics: string[], previousTopics: string[]): string[] {
+    const availableTopics = allTopics.filter(topic => !previousTopics.includes(topic));
+    if (availableTopics.length < 3) {
+      return this.DEFAULT_GROUP[Object.keys(this.DEFAULT_GROUP)[0]];
+    }
+    return availableTopics.sort(() => 0.5 - Math.random()).slice(0, 3);
+  }
 
 } 
