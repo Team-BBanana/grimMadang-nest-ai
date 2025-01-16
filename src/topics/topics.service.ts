@@ -242,6 +242,38 @@ export class TopicsService {
   ): Promise<ExploreTopicsResponseDto> {
     // 메타데이터 조회만 수행 (가이드라인 생성 없이)
     const existingMetadata = await this.checkTopicMetadata(selectedTopic);
+    
+    if (existingMetadata) {
+      const confirmationPrompt = `
+        주제: ${selectedTopic}
+        상황: 노인 사용자가 해당 주제로 그림을 그리기로 확정했습니다.
+        요구사항: 
+        1. 그림을 그리기 시작하자는 긍정적이고 따뜻한 메시지를 생성해주세요.
+        2. 해당 주제의 핵심적인 그리기 포인트를 간단히 언급해주세요.
+        3. 자연스러운 대화체로 작성해주세요.
+        4. 이모티콘이나 이모지는 절대 사용하지 마세요.
+        5. 응답은 반드시 20단어 내외로 작성해주세요.
+        예시: "좋아요, 바나나는 곡선을 살리는 게 포인트예요. 한번 시작해볼까요?"
+      `;
+      
+      const aiText = await this.openAIService.generateText(confirmationPrompt);
+      this.logger.debug('AI 응답 생성 완료:', aiText);
+
+      const metadata = new TopicImageMetadataResponseDto();
+      metadata.imageUrl = existingMetadata.imageUrl;
+      metadata.topic = selectedTopic;
+      metadata.guidelines = ''; // 선택 단계에서는 빈 가이드라인
+
+      return {
+        topics: selectedTopic,
+        select: 'true',
+        aiResponseExploreWav: aiText,
+        metadata: metadata,
+        originalText: aiText
+      };
+    }
+
+    // 메타데이터가 없는 경우 기존 로직
     const aiText = `${selectedTopic}가 맞나요?`;
     
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
@@ -250,18 +282,11 @@ export class TopicsService {
     // TODO: TTS 임시 비활성화 (비용 절감)
     const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
-    const metadata = existingMetadata ? new TopicImageMetadataResponseDto() : undefined;
-    if (metadata && existingMetadata) {
-      metadata.imageUrl = existingMetadata.imageUrl;
-      metadata.topic = selectedTopic;
-      metadata.guidelines = ''; // 선택 단계에서는 빈 가이드라인
-    }
-
     return {
       topics: selectedTopic,
       select: 'false',
       aiResponseExploreWav: aiText,
-      metadata: metadata,
+      metadata: undefined,
       originalText: aiText
     };
   }
