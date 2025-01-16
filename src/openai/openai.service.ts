@@ -153,7 +153,10 @@ export class OpenAIService {
         n: 1,
         size: "1024x1024",
         quality: "standard",
-        style: "natural"
+        // style: "natural",
+        // size: "1792x1024",
+        // quality: "hd",
+        style: "vivid"
       });
 
       const imageUrl = response.data[0].url;

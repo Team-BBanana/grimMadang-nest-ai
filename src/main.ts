@@ -2,9 +2,42 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as bodyParser from 'body-parser';
+import { Logger } from '@nestjs/common';
+import * as net from 'net';
+
+// 포트 사용 가능 여부 확인 함수
+async function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+      .once('error', () => resolve(false))
+      .once('listening', () => {
+        server.close();
+        resolve(true);
+      })
+      .listen(port);
+  });
+}
+
+// 사용 가능한 포트 찾기
+async function findAvailablePort(startPort: number): Promise<number> {
+  const logger = new Logger('PortFinder');
+  let port = startPort;
+  const maxAttempts = 10;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+    logger.warn(`포트 ${port}가 사용 중입니다. 다음 포트 시도...`);
+    port++;
+  }
+
+  throw new Error('사용 가능한 포트를 찾을 수 없습니다.');
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
   // body-parser 설정 - 요청 크기 제한 증가
   app.use(bodyParser.json({limit: '50mb'}));
@@ -23,10 +56,20 @@ async function bootstrap() {
 
   // CORS 설정
   app.enableCors({
-    origin: 'http://localhost:5173', // 특정 도메인만 허용
-    credentials: true, // 자격 증명 허용
+    origin: 'http://localhost:5173',
+    credentials: true,
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  // 포트 설정 및 서버 시작
+  const preferredPort = parseInt(process.env.PORT || '3000', 10);
+  try {
+    const port = await findAvailablePort(preferredPort);
+    await app.listen(port);
+    logger.log(`서버가 포트 ${port}에서 시작되었습니다.`);
+  } catch (error) {
+    logger.error('서버 시작 실패:', error.message);
+    process.exit(1);
+  }
 }
+
 bootstrap();
