@@ -291,12 +291,16 @@ export class TopicsService {
     this.logger.debug('AI 응답 생성 완료:', aiText);
 
     // 가이드라인 생성
-    const guidelines = await this.generateGuidelines(existingMetadata.imageUrl);
+    const guidelinesStr = await this.generateGuidelines(existingMetadata.imageUrl);
+    const guidelines = JSON.parse(guidelinesStr);
+
+    // 가이드라인 저장
+    await this.generateAndSaveGuidelines(selectedTopic, sessionId, existingMetadata.imageUrl, guidelines);
 
     const metadata = new TopicImageMetadataResponseDto();
     metadata.imageUrl = existingMetadata.imageUrl;
     metadata.topic = selectedTopic;
-    metadata.guidelines = guidelines;
+    metadata.guidelines = guidelinesStr;
 
     return {
       topics: selectedTopic,
@@ -315,11 +319,7 @@ export class TopicsService {
       // 이미지 생성 및 메타데이터 저장
       const imageUrl = await this.generateTopicImage(selectedTopic);
       const savedMetadata = await this.saveTopicMetadata(selectedTopic, imageUrl);
-      
-      // if (savedMetadata) {
-      //   // 가이드라인 생성 및 저장
-      //   await this.generateAndSaveGuidelines(selectedTopic, sessionId, savedMetadata.imageUrl);
-      // }
+
     } catch (error) {
       this.logger.error(`메타데이터 생성 실패: ${error.message}`, error.stack);
       throw error;
@@ -327,14 +327,15 @@ export class TopicsService {
   }
 
   /**
-   * 가이드라인 생성 및 저장을 위한 비동기 프로세스
+   * 가이드라인 저장을 및 삭제를 위한 프로세스
    */
-  private async generateAndSaveGuidelines(selectedTopic: string, sessionId: string, imageUrl: string): Promise<void> {
+  private async generateAndSaveGuidelines(
+    selectedTopic: string, 
+    sessionId: string, 
+    imageUrl: string,
+    guidelines: any[]
+  ): Promise<void> {
     try {
-      // 가이드라인 생성
-      const guidelines = await this.generateGuidelines(imageUrl);
-      const parsedGuidelines = JSON.parse(guidelines);
-      
       // 기존 가이드라인이 있다면 삭제
       await this.drawingGuideModel.deleteMany({
         topic: selectedTopic,
@@ -346,10 +347,10 @@ export class TopicsService {
         sessionId: sessionId,
         topic: selectedTopic,
         imageUrl: imageUrl,
-        steps: parsedGuidelines
+        steps: guidelines
       });
     } catch (error) {
-      this.logger.error(`가이드라인 생성 실패: ${error.message}`, error.stack);
+      this.logger.error(`가이드라인 저장 실패: ${error.message}`, error.stack);
       throw error;
     }
   }
