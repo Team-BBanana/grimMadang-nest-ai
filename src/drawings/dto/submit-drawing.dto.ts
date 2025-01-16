@@ -24,11 +24,12 @@ export class SubmitDrawingRequestDto {
   imageUrl: string;
 
   @ApiProperty({
-    description: '현재 진행 단계 (1 ~ 5단계 사이)',
-    example: 1,
-    minimum: 1,
-    maximum: 5
+    description: '현재 진행 5단계 (단계 원래 기획은 N단계 랜덤이며, 현재는 고정해둠. 단, 최소 3단계는 이상)',
+    example: 5,
+    minimum: 3,
+    maximum: 5,
   })
+  
   @IsNumber()
   @Min(1)
   @Max(5)
@@ -49,7 +50,7 @@ export class SubmitDrawingResponseDto {
   feedback: string;
 
   @ApiProperty({
-    description: '통과 여부 (40점 이상)',
+    description: '통과 여부 (n점 이상)',
     example: true
   })
   passed: boolean;
@@ -63,4 +64,6 @@ export class SubmitDrawingResponseDto {
     title: string;
     instruction: string;
   };
+
+
 } 
