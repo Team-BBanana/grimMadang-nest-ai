@@ -47,6 +47,9 @@ export class DrawingsService {
       }
 
       this.logger.debug('가이드라인 단계들:', drawingGuide.steps);
+      this.logger.debug('현재 단계:', currentStep);
+      this.logger.debug('현재 단계 가이드:', drawingGuide.steps[currentStep - 1]);
+      this.logger.debug('현재 단계 가이드 이미지:', drawingGuide.imageUrl);
 
       // 현재 단계가 유효한지 확인
       if (currentStep < 1 || currentStep > drawingGuide.steps.length) {
@@ -176,27 +179,23 @@ export class DrawingsService {
          - 20단어 내외로 작성
 
       4. 응답은 반드시 아래 JSON 형식으로 작성:
-         {
-           "score": number,
-           "feedback": string
-         }
+        {
+          "score": (0-100 사이의 점수),
+          "feedback": "(긍정적인 피드백)"
+        }
 
       * 중요: 노인 사용자의 그림이므로 완벽함을 요구하지 말고, 
         시도와 노력을 높이 평가해주세요.
     `;
 
     const userPrompt = `
-      환자가 그린 그림을 평가해주세요.
       현재 단계: ${currentStepGuide.title}
+      단계별 지시사항: ${currentStepGuide.instruction}
 
-      현재 단계 정보:
-      목표: ${currentStepGuide.title}
-      지시사항: ${currentStepGuide.instruction}
+      첫 번째 이미지는 참고할 이미지이고,
+      두 번째 이미지는 노인 환자가 그린 그림입니다.
 
-      첫번째 이미지는 가이드 이미지이고,
-      두번째 이미지는 환자가 그린 그림입니다.
-      
-      현재 단계의 지시사항을 기준으로 평가해주세요.
+      위 JSON 형식으로 점수와 피드백을 제공해주세요.
     `;
 
     return await this.openAIService.analyzeImagesWithVision(
