@@ -153,10 +153,10 @@ export class OpenAIService {
         n: 1,
         size: "1024x1024",
         quality: "standard",
-        // style: "natural",
+        style: "natural",
         // size: "1792x1024",
         // quality: "hd",
-        style: "vivid"
+        // style: "vivid"
       });
 
       const imageUrl = response.data[0].url;
@@ -183,7 +183,10 @@ export class OpenAIService {
               { type: 'text', text: prompt },
               {
                 type: 'image_url',
-                image_url: { url: imageUrl }
+                image_url: { 
+                  url: imageUrl,
+                  detail: "high"
+                }
               }
             ]
           }
@@ -208,12 +211,15 @@ export class OpenAIService {
     systemPrompt: string,
     userPrompt: string
   ): Promise<{ score: number; feedback: string }> {
-    const MAX_RETRIES = 3;  // 최대 재시도 횟수
+    // const MAX_RETRIES = 3;  // 최대 재시도 횟수
     let retryCount = 0;
+    let lastError = null;
 
-    while (retryCount < MAX_RETRIES) {
+    while (true) {  // 무한 재시도로 변경
+      retryCount++;
+      this.logger.debug(`재시도 횟수: ${retryCount}`);
       try {
-        this.logger.debug(`Vision API 분석 시도 ${retryCount + 1}/${MAX_RETRIES}`);
+        // this.logger.debug(`Vision API 분석 시도 ${retryCount + 1}/${MAX_RETRIES}`);
 
         const response = await this.openai.chat.completions.create({
           model: 'gpt-4o',
@@ -247,25 +253,32 @@ export class OpenAIService {
 
         const result = response.choices[0]?.message?.content;
         if (!result) {
-          this.logger.warn(`응답이 비어있음 (시도 ${retryCount + 1}/${MAX_RETRIES})`);
-          retryCount++;
-          continue;
+          lastError = new Error('Vision API 응답이 비어있음');
+          this.logger.warn('응답이 비어있음');
+          return {
+            score: 0,
+            feedback: '그림이 너무 흐릿하거나 불분명해요. 좀 더 선명하고 자세하게 그려주시겠어요?'
+          };
         }
 
         this.logger.debug('Raw Vision API 응답:', result);
         
         // 응답에서 특정 에러 메시지 패턴 확인
         if (result.includes('지원되지 않습니다') || result.includes('처리할 수 없습니다')) {
-          this.logger.warn(`API 제한 응답 (시도 ${retryCount + 1}/${MAX_RETRIES}):`, result);
-          retryCount++;
-          continue;
+          lastError = new Error('Vision API 제한 응답');
+          this.logger.warn('API 제한 응답:', result);
+          return {
+            score: 0,
+            feedback: '그림이 잘 보이지 않아요. 조금 더 진하게 그려주시면 좋겠어요.'
+          };
         }
         
         try {
           // 응답 문자열 정리
           const cleanedResult = result
             .replace(/```(?:json)?\n|\n```/g, '') // 코드 블록 제거
-            .replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, ''); // 공백 문자 제거
+            .replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '') // 공백 문자 제거
+            .replace(/[\u200B-\u200D\uFEFF]/g, ''); // 제로 폭 공백 문자 제거
           
           this.logger.debug('정리된 응답:', cleanedResult);
           
@@ -273,9 +286,12 @@ export class OpenAIService {
           
           // 응답 형식 검증
           if (!parsedResult.score || !parsedResult.feedback) {
-            this.logger.warn(`필수 필드 누락 (시도 ${retryCount + 1}/${MAX_RETRIES}):`, parsedResult);
-            retryCount++;
-            continue;
+            lastError = new Error('필수 필드 누락');
+            this.logger.warn('필수 필드 누락:', parsedResult);
+            return {
+              score: 0,
+              feedback: '그림을 좀 더 정성스럽게 그려주시면 더 잘 평가할 수 있을 것 같아요.'
+            };
           }
 
           // 성공적인 응답을 받으면 바로 반환
@@ -283,33 +299,23 @@ export class OpenAIService {
           return parsedResult;
 
         } catch (parseError) {
-          this.logger.warn(`JSON 파싱 실패 (시도 ${retryCount + 1}/${MAX_RETRIES}). 원본 응답:`, result);
+          lastError = parseError;
+          this.logger.warn('JSON 파싱 실패. 원본 응답:', result);
           this.logger.warn('파싱 에러:', parseError);
-          retryCount++;
-          continue;
-        }
-      } catch (error) {
-        this.logger.warn(`API 호출 실패 (시도 ${retryCount + 1}/${MAX_RETRIES}):`, error);
-        retryCount++;
-        
-        if (retryCount === MAX_RETRIES) {
           return {
             score: 0,
-            feedback: '현재 그림을 평가하기 어려운 상황이에요. 잠시 후에 다시 시도해주세요.'
+            feedback: '그림이 기준 이미지와 너무 달라요. 기준 이미지를 참고해서 다시 한번 그려주시겠어요?'
           };
         }
-
-        // 재시도 전 잠시 대기
+      } catch (error) {
+        lastError = error;
+        this.logger.warn('API 호출 실패:', error);
+        
+        // API 호출 실패 시 1초 대기 후 재시도
         await new Promise(resolve => setTimeout(resolve, 1000));
         continue;
       }
     }
-
-    // 모든 재시도 실패 시
-    return {
-      score: 0,
-      feedback: '죄송합니다. 지금은 그림을 평가하기 어려워요. 잠시 후에 다시 시도해주세요.'
-    };
   }
 
   
