@@ -179,6 +179,15 @@ export class TopicsService {
 
   // 🎯 주요 핸들러 함수들
   /**
+   * 한글 받침에 따른 조사 처리
+   */
+  private getParticle(word: string, particle1: string, particle2: string): string {
+    const lastChar = word.charAt(word.length - 1);
+    const hasJongseong = (lastChar.charCodeAt(0) - 0xAC00) % 28 > 0;
+    return hasJongseong ? particle1 : particle2;
+  }
+
+  /**
    * 👋 첫 방문 시 주제 추천 처리
    */
   private async handleFirstVisit(
@@ -240,55 +249,109 @@ export class TopicsService {
     isTimedOut: string,
     sessionId: string
   ): Promise<ExploreTopicsResponseDto> {
-    // 메타데이터 조회만 수행 (가이드라인 생성 없이)
+    // 메타데이터 조회
     const existingMetadata = await this.checkTopicMetadata(selectedTopic);
     
-    if (existingMetadata) {
-      const confirmationPrompt = `
-        주제: ${selectedTopic}
-        상황: 노인 사용자가 해당 주제로 그림을 그리기로 확정했습니다.
-        요구사항: 
-        1. 그림을 그리기 시작하자는 긍정적이고 따뜻한 메시지를 생성해주세요.
-        2. 해당 주제의 핵심적인 그리기 포인트를 간단히 언급해주세요.
-        3. 자연스러운 대화체로 작성해주세요.
-        4. 이모티콘이나 이모지는 절대 사용하지 마세요.
-        5. 응답은 반드시 20단어 내외로 작성해주세요.
-        예시: "좋아요, 바나나는 곡선을 살리는 게 포인트예요. 한번 시작해볼까요?"
-      `;
-      
-      const aiText = await this.openAIService.generateText(confirmationPrompt);
-      this.logger.debug('AI 응답 생성 완료:', aiText);
+    // 메타데이터가 없는 경우 생성
+    if (!existingMetadata) {
+      // 메타데이터 생성 프로세스를 비동기로 실행
+      this.generateAndSaveMetadata(selectedTopic, sessionId).catch(error => {
+        this.logger.error('메타데이터 생성 중 오류 발생:', error);
+      });
 
       const metadata = new TopicImageMetadataResponseDto();
-      metadata.imageUrl = existingMetadata.imageUrl;
       metadata.topic = selectedTopic;
-      metadata.guidelines = ''; // 선택 단계에서는 빈 가이드라인
+      metadata.guidelines = "";
 
+      // 즉시 응답 반환
+      const aiText = `${selectedTopic}${this.getParticle(selectedTopic, '이', '가')} 맞나요?`;
       return {
         topics: selectedTopic,
-        select: 'true',
+        select: 'false',
         aiResponseExploreWav: aiText,
         metadata: metadata,
         originalText: aiText
       };
     }
 
-    // 메타데이터가 없는 경우 기존 로직
-    const aiText = `${selectedTopic}가 맞나요?`;
+    // 메타데이터가 있는 경우
+    const confirmationPrompt = `
+      주제: ${selectedTopic}
+      상황: 노인 사용자가 해당 주제로 그림을 그리기로 확정했습니다.
+      요구사항: 
+      1. 그림을 그리기 시작하자는 긍정적이고 따뜻한 메시지를 생성해주세요.
+      2. 해당 주제의 핵심적인 그리기 포인트를 간단히 언급해주세요.
+      3. 자연스러운 대화체로 작성해주세요.
+      4. 이모티콘이나 이모지는 절대 사용하지 마세요.
+      5. 응답은 반드시 20단어 내외로 작성해주세요.
+      예시: "좋아요, 바나나는 곡선을 살리는 게 포인트예요. 한번 시작해볼까요?"
+    `;
     
-    // TODO: 실제 테스트용 AI 음성 버퍼 반환
-    // const audioBuffer = await this.openAIService.textToSpeech(aiResponse);
+    const aiText = await this.openAIService.generateText(confirmationPrompt);
+    this.logger.debug('AI 응답 생성 완료:', aiText);
 
-    // TODO: TTS 임시 비활성화 (비용 절감)
-    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
+    // 가이드라인 생성
+    const guidelines = await this.generateGuidelines(existingMetadata.imageUrl);
+
+    const metadata = new TopicImageMetadataResponseDto();
+    metadata.imageUrl = existingMetadata.imageUrl;
+    metadata.topic = selectedTopic;
+    metadata.guidelines = guidelines;
 
     return {
       topics: selectedTopic,
-      select: 'false',
+      select: 'true',
       aiResponseExploreWav: aiText,
-      metadata: undefined,
+      metadata: metadata,
       originalText: aiText
     };
+  }
+
+  /**
+   * 메타데이터 생성 및 저장을 위한 비동기 프로세스
+   */
+  private async generateAndSaveMetadata(selectedTopic: string, sessionId: string): Promise<void> {
+    try {
+      // 이미지 생성 및 메타데이터 저장
+      const imageUrl = await this.generateTopicImage(selectedTopic);
+      const savedMetadata = await this.saveTopicMetadata(selectedTopic, imageUrl);
+      
+      // if (savedMetadata) {
+      //   // 가이드라인 생성 및 저장
+      //   await this.generateAndSaveGuidelines(selectedTopic, sessionId, savedMetadata.imageUrl);
+      // }
+    } catch (error) {
+      this.logger.error(`메타데이터 생성 실패: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * 가이드라인 생성 및 저장을 위한 비동기 프로세스
+   */
+  private async generateAndSaveGuidelines(selectedTopic: string, sessionId: string, imageUrl: string): Promise<void> {
+    try {
+      // 가이드라인 생성
+      const guidelines = await this.generateGuidelines(imageUrl);
+      const parsedGuidelines = JSON.parse(guidelines);
+      
+      // 기존 가이드라인이 있다면 삭제
+      await this.drawingGuideModel.deleteMany({
+        topic: selectedTopic,
+        sessionId: sessionId
+      }).exec();
+      
+      // 새로운 DrawingGuide 저장
+      await this.drawingGuideModel.create({
+        sessionId: sessionId,
+        topic: selectedTopic,
+        imageUrl: imageUrl,
+        steps: parsedGuidelines
+      });
+    } catch (error) {
+      this.logger.error(`가이드라인 생성 실패: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   /**
@@ -306,8 +369,22 @@ export class TopicsService {
       throw new Error('선택된 주제가 없습니다');
     }
 
-    // 메타데이터와 가이드라인 처리
-    const metadata = await this.handleTopicMetadata(selectedTopic, sessionId);
+    // 저장된 메타데이터와 가이드라인 조회
+    const existingMetadata = await this.checkTopicMetadata(selectedTopic);
+    if (!existingMetadata) {
+      this.logger.error('메타데이터를 찾을 수 없습니다');
+      throw new Error('메타데이터를 찾을 수 없습니다');
+    }
+
+    const existingGuide = await this.drawingGuideModel.findOne({ 
+      topic: selectedTopic,
+      sessionId: sessionId 
+    }).exec();
+
+    if (!existingGuide) {
+      this.logger.error('가이드라인을 찾을 수 없습니다');
+      throw new Error('가이드라인을 찾을 수 없습니다');
+    }
 
     const confirmationPrompt = `
       주제: ${selectedTopic}
@@ -334,7 +411,11 @@ export class TopicsService {
       topics: selectedTopic,
       select: 'true',
       aiResponseExploreWav: aiText,
-      metadata: metadata || undefined,
+      metadata: {
+        imageUrl: existingMetadata.imageUrl,
+        topic: selectedTopic,
+        guidelines: JSON.stringify(existingGuide.steps)
+      },
       originalText: aiText
     };
   }
@@ -524,7 +605,7 @@ export class TopicsService {
     // 주제가 선택된 경우
     if (isSelected && typeof topics === 'string') {
       if (isConfirmation) {
-        return `${topics}가 맞나요?`;
+        return `${topics}${this.getParticle(topics, '이', '가')} 맞나요?`;
       }
       return guidelines || `${topics}는 기본적인 형태를 잘 살리는 게 포인트예요. 한번 시작해볼까요?`;
     }
@@ -758,8 +839,8 @@ export class TopicsService {
         return cleanedResponse;
       } catch (parseError) {
         this.logger.error('가이드라인 JSON 파싱 실패:', parseError);
-        this.logger.error('원본 응답:', response);
-        this.logger.error('정리된 응답:', cleanedResponse);
+        this.logger.error('원본 가이드라인:', response);
+        this.logger.error('정리된 가이드라인:', cleanedResponse);
         
         // 기본 가이드라인 반환
         return JSON.stringify([
