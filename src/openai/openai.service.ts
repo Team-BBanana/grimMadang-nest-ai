@@ -218,6 +218,9 @@ export class OpenAIService {
     while (true) {  // 무한 재시도로 변경
       retryCount++;
       this.logger.debug(`재시도 횟수: ${retryCount}`);
+      this.logger.debug('유저 이미지 주소입니다!!!!!!!!!!! userImageUrl:', userImageUrl);
+      this.logger.debug('가이드 이미지 주소입니다!!!!!!!!!!! guideImageUrl:', guideImageUrl);
+      this.logger.debug('현재 스텝입니다!!!!!!!!!! currentStep:', currentStep);
       try {
         // this.logger.debug(`Vision API 분석 시도 ${retryCount + 1}/${MAX_RETRIES}`);
 

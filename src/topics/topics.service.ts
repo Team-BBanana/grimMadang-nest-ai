@@ -139,9 +139,9 @@ export class TopicsService {
       await this.conversationModel.create({
         sessionId: dto.sessionId,
         name: dto.name,
-        userText: userText,
-        // aiResponse: response.originalText || `${topicToConfirm}로 시작해볼까요?`,
-        aiResponse: "자~~~ 드~가~자잇!",
+        userText: "userText",
+        aiResponse: response.originalText || `${topicToConfirm}로 시작해볼까요?`,
+        // aiResponse: "자~~~ 드~가~자잇!",
         conversationOrder: nextOrder
       });
       return response;
@@ -425,7 +425,8 @@ export class TopicsService {
         topic: selectedTopic,
         guidelines: JSON.stringify(existingGuide.steps)
       },
-      originalText: aiText
+      // originalText: aiText
+      originalText: "자~~~드가자!"
     };
   }
 
