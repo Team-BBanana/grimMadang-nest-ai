@@ -309,9 +309,9 @@ export class TopicsService {
     return {
       topics: selectedTopic,
       select: 'true',
-      aiResponseExploreWav: aiText,
+      aiResponseExploreWav: "자~~~드가자!",
       metadata: metadata,
-      originalText: aiText
+      originalText: "자~~~드가자!"
     };
   }
 
