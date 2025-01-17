@@ -53,4 +53,12 @@ export class WelcomeFlowResponseDto {
       example: '바나나'
     })
     wantedTopic?: string;
+
+    @ApiProperty({
+      description: 'AI가 추천한 토픽 목록',
+      example: ['사과', '바나나', '포도'],
+      type: [String],
+      required: false
+    })
+    recommendedTopics?: string[];
 }
