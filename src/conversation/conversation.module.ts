@@ -9,6 +9,7 @@ import { ConversationService } from './conversation.service';
 import { OpenAIModule } from '../openai/openai.module';
 import { Conversation, ConversationSchema } from './schemas/conversation.schema';
 import { GoogleModule } from '../google/google.module';
+import { TopicImage, TopicImageSchema } from '../topics/schemas/topic-image.schema';
 
 // 🎯 대화 관련 기능을 모듈로 묶어서 관리
 @Module({
@@ -17,6 +18,7 @@ import { GoogleModule } from '../google/google.module';
     OpenAIModule,
     MongooseModule.forFeature([
       { name: Conversation.name, schema: ConversationSchema },
+      { name: TopicImage.name, schema: TopicImageSchema },
     ]),
     GoogleModule,
   ],

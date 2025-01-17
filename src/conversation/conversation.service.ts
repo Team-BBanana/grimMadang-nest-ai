@@ -6,6 +6,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Conversation, ConversationDocument } from './schemas/conversation.schema';
 import { isBuffer } from 'util';
+import { TopicImage } from '../topics/schemas/topic-image.schema';
 
 // 💉 Injectable 데코레이터로 서비스 클래스 정의
 @Injectable()
@@ -15,12 +16,11 @@ export class ConversationService {
 
   // 🏗️ 생성자: OpenAI 서비스와 MongoDB 모델 주입
   constructor(
-
-    private readonly openaiService: OpenAIService,
-
     @InjectModel(Conversation.name)
-    private conversationModel: Model<ConversationDocument>,
-
+    private conversationModel: Model<Conversation>,
+    @InjectModel(TopicImage.name)
+    private topicImageModel: Model<TopicImage>,
+    private readonly openaiService: OpenAIService,
   ) { }
 
   // 💬 AI 응답에서 사용자 정보를 추출하는 함수
@@ -60,11 +60,35 @@ export class ConversationService {
 
   // 🎯 AI 응답에서 실제 텍스트만 추출하는 함수
   private extractCleanText(aiResponse: string): string {
-    // 모든 [TAG:내용] 형식의 태그를 찾아서 제거
-    const cleanText = aiResponse.replace(/\[(?:INFO|DRAW):.*?\]/g, '').trim();
+    this.logger.debug('Original response before cleaning:', aiResponse);
+
+    // 1. 모든 [TAG:내용] 형식의 태그를 제거
+    let cleanText = aiResponse
+      // TOPIC_RECOMMEND 태그 제거 (대소문자 무관)
+      .replace(/\[TOPIC_RECOMMEND\](.*?)\[\/TOPIC_RECOMMEND\]/gis, '')
+      // INFO 태그 제거 (JSON 포함)
+      .replace(/\[INFO\s*:\s*{.*?}\]/gis, '')
+      // DRAW 태그 제거
+      .replace(/\[DRAW\s*:\s*(true|false)\]/gis, '')
+      // 기타 남은 태그 제거
+      .replace(/\[[A-Z_]+:.*?\]/gis, '')
+      // 연속된 공백 제거
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    this.logger.debug('Response after tag removal:', cleanText);
+
+    // 2. 따옴표로 둘러싸인 경우 제거
+    cleanText = cleanText.replace(/^["'](.*)["']$/s, '$1').trim();
     
-    // 응답이 따옴표로 둘러싸여 있는 경우 제거
-    return cleanText.replace(/^["'](.*)["']$/, '$1').trim();
+    // 3. 빈 응답 체크
+    if (!cleanText) {
+      this.logger.warn('Clean text is empty after processing');
+      return '안녕하세요.';
+    }
+
+    this.logger.debug('Final cleaned response:', cleanText);
+    return cleanText;
   }
 
   // 🎨 AI 응답에서 그리기 의도를 추출하는 함수
@@ -173,90 +197,126 @@ export class ConversationService {
   
       // 💬 이전 대화 내역 가져오기
       const previousConversations = await this.getPreviousConversations(welcomeFlowDto.sessionId);
-  
-      // 📝 프롬프트 생성
-      let prompt = '';
-      if (hasAttendanceData) {
-  
-        prompt = `
-          ${previousConversations ? '\n이전 대화 내역:\n\n' + `${previousConversations}` + '\n\n' : ''}
-          
-          사용자 정보:
-          - 이름: ${welcomeFlowDto.name}
 
-          위 정보를 바탕으로 ${welcomeFlowDto.name}님께 친근하고 따뜻한 환영 인사를 해주세요.
-          
-          ⚠️ 매우 중요 - 응답 형식 (절대적으로 준수):
-          1. 자연스럽게 이름을 포함하여 대화하세요.
-          2. 총 발화는 20단어 이내로 해주세요.
-          3. 절대로 이모지나 이모티콘을 포함하지 마세요:
-             - 유니코드 이모지 사용 금지 (예: 😊 🎨 등)
-             - ASCII 이모티콘 사용 금지 (예: :) ㅎㅎ ^^ 등)
-             - 특수문자를 이용한 이모티콘 사용 금지 (예: ♥ ★ ▶ 등)
-          4. 오직 다음 문자만 사용하세요:
-             - 한글
-             - 기본 문장부호 (마침표, 쉼표, 물음표, 느낌표)
-             - 기본 괄호
-          
-          위 형식을 엄격하게 준수하여 응답해주세요. 어떤 경우에도 이모지나 이모티콘을 포함하지 마세요.
-        `;
+      // 🎨 DB에서 사용 가능한 토픽 목록 조회 및 랜덤 셔플
+      const availableTopics = await this.topicImageModel.find().distinct('topic');
+      const shuffledTopics = availableTopics.sort(() => Math.random() - 0.5);
+      this.logger.debug('Available topics:', shuffledTopics);
+
+      // 📝 시스템 프롬프트 생성
+      const systemPrompt = `
+        당신은 노인 사용자를 위한 AI 어시스턴트입니다.
+
+        응답 형식 규칙:
+        1. 자연스럽게 이름을 포함하여 대화하세요.
+        2. 총 발화는 20단어 이내로 해주세요.
+        3. 절대로 이모지나 이모티콘을 포함하지 마세요:
+           - 유니코드 이모지 사용 금지 (예: 😊 🎨 등)
+           - ASCII 이모티콘 사용 금지 (예: :) ㅎㅎ ^^ 등)
+           - 특수문자를 이용한 이모티콘 사용 금지 (예: ♥ ★ ▶ 등)
+        4. 오직 다음 문자만 사용하세요:
+           - 한글
+           - 기본 문장부호 (마침표, 쉼표, 물음표, 느낌표)
+           - 기본 괄호
+
+        응답 구조:
+        1. 환영 인사
+        2. [TOPIC_RECOMMEND] 태그 안에 추천 토픽 3개를 JSON 배열로 포함
+           예시: [TOPIC_RECOMMEND]["사과", "바나나", "포도"][/TOPIC_RECOMMEND]
+
+        주의사항:
+        1. 추천하는 토픽은 반드시 제공된 availableTopics 목록에서만 선택하세요.
+        2. 토픽은 정확히 3개를 추천해야 합니다.
+        3. 응답에는 반드시 환영 인사와 토픽 추천이 모두 포함되어야 합니다.
+        4. 매번 다른 토픽을 추천하도록 노력하세요.
+        5. 제공된 토픽 목록의 앞쪽에 있는 것을 우선적으로 선택하세요.
+      `;
+
+      // 📝 유저 프롬프트 생성
+      const userPrompt = `
+        ${previousConversations ? '\n이전 대화 내역:\n\n' + `${previousConversations}` + '\n\n' : ''}
+        
+        사용자 정보:
+        - 이름: ${welcomeFlowDto.name}
+        
+        사용 가능한 토픽 목록 (앞쪽에 있는 토픽을 우선적으로 선택해주세요):
+        ${JSON.stringify(shuffledTopics)}
+
+        위 정보를 바탕으로 ${welcomeFlowDto.name}님께 환영 인사를 하고, 그림 그리기에 적합한 토픽 3개를 추천해주세요.
+        토픽 추천은 반드시 제공된 availableTopics 목록에서만 선택해주세요.
+        가능한 목록의 앞쪽에 있는 토픽을 선택해주세요.
+      `;
+  
+      this.logger.debug('Generated system prompt:', systemPrompt);
+      this.logger.debug('Generated user prompt:', userPrompt);
+
+      // 🤖 AI 응답 생성 및 처리
+      try {
+        const aiResponse = await this.openaiService.generateText(systemPrompt, userPrompt);
+        this.logger.debug('Original AI Response:', aiResponse);
+
+        // 토픽 추천 추출
+        const topicMatch = aiResponse.match(/\[TOPIC_RECOMMEND\](.*?)\[\/TOPIC_RECOMMEND\]/is);
+        let recommendedTopics: string[] = [];
+        
+        if (topicMatch && topicMatch[1]) {
+          try {
+            recommendedTopics = JSON.parse(topicMatch[1]);
+            this.logger.debug('Extracted topics:', recommendedTopics);
+            
+            // 토픽 유효성 검사
+            if (!Array.isArray(recommendedTopics) || recommendedTopics.length !== 3) {
+              this.logger.warn('Invalid topics format or count:', recommendedTopics);
+              recommendedTopics = shuffledTopics.slice(0, 3); // 첫 3개 토픽 사용
+            }
+          } catch (error) {
+            this.logger.error('Failed to parse recommended topics:', error);
+            recommendedTopics = shuffledTopics.slice(0, 3); // 파싱 실패 시 첫 3개 토픽 사용
+          }
+        } else {
+          this.logger.warn('No topic recommendations found in response');
+          recommendedTopics = shuffledTopics.slice(0, 3); // 토픽 태그 없을 시 첫 3개 토픽 사용
+        }
+
+        // 태그 제거 및 응답 정리
+        const cleanResponse = this.extractCleanText(aiResponse);
+        this.logger.debug('Clean response:', cleanResponse);
+
+        // 환영 인사와 토픽 추천을 자연스럽게 통합
+        const combinedResponse = `${cleanResponse} ${recommendedTopics.join(', ')} 중에서 어떤 것을 그려보고 싶으신가요?`;
+        this.logger.debug('Combined response:', combinedResponse);
+
+        // TODO: TTS 임시 비활성화 (비용 절감)
+        const aiResponseWav = Buffer.from('');
+        this.logger.debug('Generated empty buffer for audio response');
+
+        // 💾 대화 내용 저장
+        await this.saveConversation(
+          welcomeFlowDto.sessionId,
+          welcomeFlowDto.name,
+          'first',
+          combinedResponse,  // 통합된 응답 저장
+          true,
+          welcomeFlowDto.attendanceTotal,
+          welcomeFlowDto.attendanceStreak,
+          recommendedTopics,
+          undefined,
+          undefined,
+          undefined
+        );
+
+        // ✅ 결과 반환
+        return {
+          aiResponseWelcomeWav: combinedResponse,  // 통합된 응답 반환
+          choice: false,
+          recommendedTopics: recommendedTopics
+        };
+      } catch (error) {
+        // ❌ 에러 처리
+        this.logger.error(`Error in processFirstWelcomeWithAttendance: ${error.message}`, error.stack);
+        throw error;
       }
-  
-    this.logger.debug('Generated prompt:', prompt);
-
-    // 🤖 AI 응답 생성 및 처리
-    try {
-      const aiResponse = await this.openaiService.generateText(prompt);
-      this.logger.debug('Original AI Response:', aiResponse);
-
-       // 🔊 음성 변환
-      // 대신 로컬 WAV 파일 읽기 
-      // const fs = require('fs');
-      // const path = require('path');
-      // const wavFile = path.join(process.cwd(), 'src', 'public', '1.wav');
-      // const aiResponseWav = fs.readFileSync(wavFile);
-      // this.logger.debug('Loaded local WAV file for response');
-
-      // 태그와 이모지 제거
-      const cleanResponse = aiResponse
-        .replace(/\[INFO:.*?\]/g, '')  // INFO 태그 제거
-        .replace(/\[DRAW:.*?\]/g, '')  // DRAW 태그 제거
-        .trim();  // 앞뒤 공백 제거
-
-      // const aiResponseWav = await this.openaiService.textToSpeech(aiResponse);
-      this.logger.debug('Cleaned Response:', cleanResponse);
-
-      // TODO: TTS 임시 비활성화 (비용 절감)
-      const aiResponseWav = Buffer.from(''); // 빈 버퍼 반환
-      this.logger.debug('Generated empty buffer for audio response');
-
-      // 💾 대화 내용 저장
-      await this.saveConversation(
-        welcomeFlowDto.sessionId,
-        welcomeFlowDto.name,
-        'first',
-        cleanResponse,
-        true,
-        welcomeFlowDto.attendanceTotal,
-        welcomeFlowDto.attendanceStreak,
-        undefined, // interests 초기화
-        undefined, // wantedTopic 초기화
-        undefined, // preferences 초기화
-        undefined  // personalInfo 초기화
-      );
-
-      // ✅ 결과 반환
-      return {
-        aiResponseWelcomeWav: cleanResponse,
-        choice: false,
-      };
-    } catch (error) {
-      // ❌ 에러 처리
-      this.logger.error(`Error in processFirstWelcomeWithAttendance: ${error.message}`, error.stack);
-      throw error;(''); // 빈 버퍼 반환
-      // this.logger.debug('Generated empt
     }
-  }
 
 
  // 🌟 일반 대화 처리 메소드
