@@ -56,9 +56,14 @@ async function bootstrap() {
 
   // CORS 설정
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: 'http://grim-madang.store',
     credentials: true,
   });
+
+  // app.enableCors({
+  //   origin: 'http://localhost:4173',
+  //   credentials: true,
+  // });
 
   // 포트 설정 및 서버 시작
   const preferredPort = parseInt(process.env.PORT || '3000', 10);
