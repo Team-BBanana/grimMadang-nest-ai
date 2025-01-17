@@ -209,6 +209,11 @@ export class DrawingsService {
       
       위 JSON 형식으로 점수와 피드백을 제공해주세요.
     `;
+    // 프롬프트 제외한 내용
+    // * 중요: 노인 사용자의 그림이므로 완벽함을 요구하지 말고, 
+    // 시도와 노력을 높이 평가해주세요.
+
+    
 
     return await this.openAIService.analyzeImagesWithVision(
       encodedUserImageUrl,

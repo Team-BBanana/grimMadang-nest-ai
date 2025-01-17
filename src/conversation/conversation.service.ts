@@ -60,11 +60,35 @@ export class ConversationService {
 
   // 🎯 AI 응답에서 실제 텍스트만 추출하는 함수
   private extractCleanText(aiResponse: string): string {
-    // 모든 [TAG:내용] 형식의 태그를 찾아서 제거
-    const cleanText = aiResponse.replace(/\[(?:INFO|DRAW):.*?\]/g, '').trim();
+    this.logger.debug('Original response before cleaning:', aiResponse);
+
+    // 1. 모든 [TAG:내용] 형식의 태그를 제거
+    let cleanText = aiResponse
+      // TOPIC_RECOMMEND 태그 제거 (대소문자 무관)
+      .replace(/\[TOPIC_RECOMMEND\](.*?)\[\/TOPIC_RECOMMEND\]/gis, '')
+      // INFO 태그 제거 (JSON 포함)
+      .replace(/\[INFO\s*:\s*{.*?}\]/gis, '')
+      // DRAW 태그 제거
+      .replace(/\[DRAW\s*:\s*(true|false)\]/gis, '')
+      // 기타 남은 태그 제거
+      .replace(/\[[A-Z_]+:.*?\]/gis, '')
+      // 연속된 공백 제거
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    this.logger.debug('Response after tag removal:', cleanText);
+
+    // 2. 따옴표로 둘러싸인 경우 제거
+    cleanText = cleanText.replace(/^["'](.*)["']$/s, '$1').trim();
     
-    // 응답이 따옴표로 둘러싸여 있는 경우 제거
-    return cleanText.replace(/^["'](.*)["']$/, '$1').trim();
+    // 3. 빈 응답 체크
+    if (!cleanText) {
+      this.logger.warn('Clean text is empty after processing');
+      return '안녕하세요.';
+    }
+
+    this.logger.debug('Final cleaned response:', cleanText);
+    return cleanText;
   }
 
   // 🎨 AI 응답에서 그리기 의도를 추출하는 함수
@@ -232,29 +256,35 @@ export class ConversationService {
         this.logger.debug('Original AI Response:', aiResponse);
 
         // 토픽 추천 추출
-        const topicMatch = aiResponse.match(/\[TOPIC_RECOMMEND\](.*?)\[\/TOPIC_RECOMMEND\]/);
+        const topicMatch = aiResponse.match(/\[TOPIC_RECOMMEND\](.*?)\[\/TOPIC_RECOMMEND\]/is);
         let recommendedTopics: string[] = [];
         
         if (topicMatch && topicMatch[1]) {
           try {
             recommendedTopics = JSON.parse(topicMatch[1]);
             this.logger.debug('Extracted topics:', recommendedTopics);
+            
+            // 토픽 유효성 검사
+            if (!Array.isArray(recommendedTopics) || recommendedTopics.length !== 3) {
+              this.logger.warn('Invalid topics format or count:', recommendedTopics);
+              recommendedTopics = shuffledTopics.slice(0, 3); // 첫 3개 토픽 사용
+            }
           } catch (error) {
             this.logger.error('Failed to parse recommended topics:', error);
+            recommendedTopics = shuffledTopics.slice(0, 3); // 파싱 실패 시 첫 3개 토픽 사용
           }
+        } else {
+          this.logger.warn('No topic recommendations found in response');
+          recommendedTopics = shuffledTopics.slice(0, 3); // 토픽 태그 없을 시 첫 3개 토픽 사용
         }
 
-        // 태그와 이모지 제거
-        const cleanResponse = aiResponse
-          .replace(/\[TOPIC_RECOMMEND\].*?\[\/TOPIC_RECOMMEND\]/g, '')  // 토픽 추천 태그 제거
-          .replace(/\[INFO:.*?\]/g, '')  // INFO 태그 제거
-          .replace(/\[DRAW:.*?\]/g, '')  // DRAW 태그 제거
-          .trim();  // 앞뒤 공백 제거
+        // 태그 제거 및 응답 정리
+        const cleanResponse = this.extractCleanText(aiResponse);
+        this.logger.debug('Clean response:', cleanResponse);
 
         // 환영 인사와 토픽 추천을 자연스럽게 통합
-        const combinedResponse = recommendedTopics.length === 3 
-          ? `${cleanResponse} ${recommendedTopics.join(', ')} 중에서 어떤 것을 그려보고 싶으신가요?`
-          : cleanResponse;
+        const combinedResponse = `${cleanResponse} ${recommendedTopics.join(', ')} 중에서 어떤 것을 그려보고 싶으신가요?`;
+        this.logger.debug('Combined response:', combinedResponse);
 
         // TODO: TTS 임시 비활성화 (비용 절감)
         const aiResponseWav = Buffer.from('');
