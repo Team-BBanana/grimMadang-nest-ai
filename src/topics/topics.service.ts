@@ -140,7 +140,8 @@ export class TopicsService {
         sessionId: dto.sessionId,
         name: dto.name,
         userText: userText,
-        aiResponse: response.originalText || `${topicToConfirm}로 시작해볼까요?`,
+        // aiResponse: response.originalText || `${topicToConfirm}로 시작해볼까요?`,
+        aiResponse: "자~~~ 드~가~자잇!",
         conversationOrder: nextOrder
       });
       return response;
@@ -275,19 +276,22 @@ export class TopicsService {
     }
 
     // 메타데이터가 있는 경우
-    const confirmationPrompt = `
-      주제: ${selectedTopic}
-      상황: 노인 사용자가 해당 주제로 그림을 그리기로 확정했습니다.
-      요구사항: 
-      1. 그림을 그리기 시작하자는 긍정적이고 따뜻한 메시지를 생성해주세요.
-      2. 해당 주제의 핵심적인 그리기 포인트를 간단히 언급해주세요.
-      3. 자연스러운 대화체로 작성해주세요.
-      4. 이모티콘이나 이모지는 절대 사용하지 마세요.
-      5. 응답은 반드시 20단어 내외로 작성해주세요.
-      예시: "좋아요, 바나나는 곡선을 살리는 게 포인트예요. 한번 시작해볼까요?"
+    const systemPrompt = `
+      역할: 노인 사용자를 위한 그림 그리기 활동 안내자
+      목표: 사용자가 선택한 주제로 그림 그리기를 시작하도록 격려
+      응답 형식:
+      1. 10단어 내외의 자연스러운 대화체
+      2. 이모티콘/이모지 사용 금지
+      3. 마지막에 "시작해볼까요?" 포함
+      4. 예시 형식: "좋아요, 그림을 그리려는 모습이 멋있어요! 한번 시작해볼까요?"
+    `;
+
+    const userPrompt = `
+      선택된 주제 "${selectedTopic}"에 대해 그림 그리기를 시작하자는 
+      긍정적이고 따뜻한 메시지를 생성해주세요.
     `;
     
-    const aiText = await this.openAIService.generateText(confirmationPrompt);
+    const aiText = await this.openAIService.generateText(systemPrompt, userPrompt);
     this.logger.debug('AI 응답 생성 완료:', aiText);
 
     // 가이드라인 생성
@@ -387,23 +391,22 @@ export class TopicsService {
       throw new Error('가이드라인을 찾을 수 없습니다');
     }
 
-    const confirmationPrompt = `
-      주제: ${selectedTopic}
-      상황: 노인 사용자가 해당 주제로 그림을 그리기로 확정했습니다.
-      요구사항: 
-      1. 그림을 그리기 시작하자는 긍정적이고 따뜻한 메시지를 생성해주세요.
-      2. 자연스러운 대화체로 작성해주세요.
-      3. 이모티콘이나 이모지는 절대 사용하지 마세요.
-      4. 응답은 반드시 10단어 내외로 작성해주세요.
-      5. 아래 예시 형식을 지켜주세요.
-      6. 응답 맨 마지막엔 꼭 시작해볼까요? 를 넣어주세요.
-      7. 포인트를 언급 할 땐, 딱 한가지만 언급해주세요.
+    const systemPrompt = `
+      역할: 노인 사용자를 위한 그림 그리기 활동 안내자
+      목표: 사용자가 선택한 주제로 그림 그리기를 시작하도록 격려
+      응답 형식:
+      1. 10단어 내외의 자연스러운 대화체
+      2. 이모티콘/이모지 사용 금지
+      3. 마지막에 "시작해볼까요?" 포함
+      4. 예시 형식: "좋아요, 그림을 그리려는 모습이 멋있어요! 한번 시작해볼까요?"
+    `;
 
-      *중요* 이런식으로 답변 해주세요. 
-       - 예시: "좋아요, 바나나는 곡선을 살리는 게 포인트예요. 한번 시작해볼까요?"
+    const userPrompt = `
+      선택된 주제 "${selectedTopic}"에 대해 그림 그리기를 시작하자는 
+      긍정적이고 따뜻한 메시지를 생성해주세요.
     `;
     
-    const aiText = await this.openAIService.generateText(confirmationPrompt);
+    const aiText = await this.openAIService.generateText(systemPrompt, userPrompt);
     this.logger.debug('AI 응답 생성 완료:', aiText);
 
     // TODO: 실제 테스트용 AI 음성 버퍼 반환
