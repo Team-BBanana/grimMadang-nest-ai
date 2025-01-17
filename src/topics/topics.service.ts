@@ -29,6 +29,9 @@ export class TopicsService {
   // 🎨 주제 그룹 저장을 위한 private 변수
   private dynamicTopicGroups: Record<string, string[]> = {};
 
+  // 🔄 메타데이터 생성 상태 추적을 위한 맵
+  private metadataGenerationMap = new Map<string, Promise<void>>();
+
   private readonly DEFAULT_GROUP = {
     '기본': ['사과', '바나나', '포도']
   };
@@ -255,14 +258,25 @@ export class TopicsService {
     
     // 메타데이터가 없는 경우 생성
     if (!existingMetadata) {
-      // 메타데이터 생성 프로세스를 비동기로 실행
-      this.generateAndSaveMetadata(selectedTopic, sessionId).catch(error => {
-        this.logger.error('메타데이터 생성 중 오류 발생:', error);
-      });
+      this.logger.debug('메타데이터 없음, 새로 생성 시작');
+      
+      // 이미지 생성 및 메타데이터 저장 (동기적 처리)
+      const imageUrl = await this.generateTopicImage2(selectedTopic);
+      const savedMetadata = await this.saveTopicMetadata(selectedTopic, imageUrl);
+      
+      if (!savedMetadata) {
+        throw new Error('메타데이터 저장 실패');
+      }
+
+      // 가이드라인 생성 및 저장
+      const guidelinesStr = await this.generateGuidelines(imageUrl);
+      const guidelines = JSON.parse(guidelinesStr);
+      await this.generateAndSaveGuidelines(selectedTopic, sessionId, imageUrl, guidelines);
 
       const metadata = new TopicImageMetadataResponseDto();
       metadata.topic = selectedTopic;
-      metadata.guidelines = "";
+      metadata.imageUrl = imageUrl;
+      metadata.guidelines = guidelinesStr;
 
       // 즉시 응답 반환
       const aiText = `${selectedTopic}${this.getParticle(selectedTopic, '이', '가')} 맞나요?`;
@@ -276,6 +290,19 @@ export class TopicsService {
     }
 
     // 메타데이터가 있는 경우
+    this.logger.debug('기존 메타데이터 발견, 가이드라인 재생성');
+
+    // 기존 가이드라인 삭제
+    await this.drawingGuideModel.deleteMany({
+      topic: selectedTopic,
+      sessionId: sessionId
+    }).exec();
+
+    // 새로운 가이드라인 생성
+    const guidelinesStr = await this.generateGuidelines(existingMetadata.imageUrl);
+    const guidelines = JSON.parse(guidelinesStr);
+    await this.generateAndSaveGuidelines(selectedTopic, sessionId, existingMetadata.imageUrl, guidelines);
+
     const systemPrompt = `
       역할: 노인 사용자를 위한 그림 그리기 활동 안내자
       목표: 사용자가 선택한 주제로 그림 그리기를 시작하도록 격려
@@ -294,24 +321,22 @@ export class TopicsService {
     const aiText = await this.openAIService.generateText(systemPrompt, userPrompt);
     this.logger.debug('AI 응답 생성 완료:', aiText);
 
-    // 가이드라인 생성
-    const guidelinesStr = await this.generateGuidelines(existingMetadata.imageUrl);
-    const guidelines = JSON.parse(guidelinesStr);
+    // TODO: 실제 테스트용 AI 음성 버퍼 반환
+    // const audioBuffer = await this.openAIService.textToSpeech(aiText);
 
-    // 가이드라인 저장
-    await this.generateAndSaveGuidelines(selectedTopic, sessionId, existingMetadata.imageUrl, guidelines);
-
-    const metadata = new TopicImageMetadataResponseDto();
-    metadata.imageUrl = existingMetadata.imageUrl;
-    metadata.topic = selectedTopic;
-    metadata.guidelines = guidelinesStr;
+    // TODO: TTS 임시 비활성화 (비용 절감)
+    const audioBuffer = Buffer.from(''); // 빈 버퍼 반환
 
     return {
       topics: selectedTopic,
       select: 'true',
-      aiResponseExploreWav: "자~~~드가자!",
-      metadata: metadata,
-      originalText: "자~~~드가자!"
+      aiResponseExploreWav: "",
+      metadata: {
+        imageUrl: existingMetadata.imageUrl,
+        topic: selectedTopic,
+        guidelines: JSON.stringify(guidelines)
+      },
+      originalText: ""
     };
   }
 
@@ -374,6 +399,18 @@ export class TopicsService {
       throw new Error('선택된 주제가 없습니다');
     }
 
+    // 진행 중인 메타데이터 생성이 있는지 확인
+    const pendingGeneration = this.metadataGenerationMap.get(`${sessionId}-${selectedTopic}`);
+    if (pendingGeneration) {
+      this.logger.debug('메타데이터 생성 완료 대기 중...');
+      try {
+        await pendingGeneration;
+      } catch (error) {
+        this.logger.error('메타데이터 생성 실패:', error);
+        throw new Error('메타데이터 생성에 실패했습니다');
+      }
+    }
+
     // 저장된 메타데이터와 가이드라인 조회
     const existingMetadata = await this.checkTopicMetadata(selectedTopic);
     if (!existingMetadata) {
@@ -419,14 +456,14 @@ export class TopicsService {
       topics: selectedTopic,
       select: 'true',
       // aiResponseExploreWav: aiText, // 현재 가끔 이상한 말을 뱉고 있는 부분. 필요하면 제거 가능
-      aiResponseExploreWav: "자~~~드가자!",
+      aiResponseExploreWav: "",
       metadata: {
         imageUrl: existingMetadata.imageUrl,
         topic: selectedTopic,
         guidelines: JSON.stringify(existingGuide.steps)
       },
       // originalText: aiText
-      originalText: "자~~~드가자!"
+      originalText: ""
     };
   }
 
@@ -911,7 +948,7 @@ export class TopicsService {
       const response = await this.openAIService.generateText(guidelinePrompt);
       
       // 마크다운 코드 블록 제거
-      const cleanedResponse = response.replace(/```(?:json)?\n|\n```/g, '').trim();
+      const cleanedResponse = response.replace(/```json\n|\n```/g, '').trim();
       
       // JSON 파싱 시도
       try {
