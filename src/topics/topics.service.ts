@@ -418,7 +418,8 @@ export class TopicsService {
     return {
       topics: selectedTopic,
       select: 'true',
-      aiResponseExploreWav: aiText,
+      // aiResponseExploreWav: aiText, // 현재 가끔 이상한 말을 뱉고 있는 부분. 필요하면 제거 가능
+      aiResponseExploreWav: "자~~~드가자!",
       metadata: {
         imageUrl: existingMetadata.imageUrl,
         topic: selectedTopic,

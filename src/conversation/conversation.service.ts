@@ -251,6 +251,11 @@ export class ConversationService {
           .replace(/\[DRAW:.*?\]/g, '')  // DRAW 태그 제거
           .trim();  // 앞뒤 공백 제거
 
+        // 환영 인사와 토픽 추천을 자연스럽게 통합
+        const combinedResponse = recommendedTopics.length === 3 
+          ? `${cleanResponse} ${recommendedTopics.join(', ')} 중에서 어떤 것을 그려보고 싶으신가요?`
+          : cleanResponse;
+
         // TODO: TTS 임시 비활성화 (비용 절감)
         const aiResponseWav = Buffer.from('');
         this.logger.debug('Generated empty buffer for audio response');
@@ -260,21 +265,21 @@ export class ConversationService {
           welcomeFlowDto.sessionId,
           welcomeFlowDto.name,
           'first',
-          cleanResponse,
+          combinedResponse,  // 통합된 응답 저장
           true,
           welcomeFlowDto.attendanceTotal,
           welcomeFlowDto.attendanceStreak,
-          recommendedTopics, // 추천된 토픽을 interests로 저장
-          undefined, // wantedTopic 초기화
-          undefined, // preferences 초기화
-          undefined  // personalInfo 초기화
+          recommendedTopics,
+          undefined,
+          undefined,
+          undefined
         );
 
         // ✅ 결과 반환
         return {
-          aiResponseWelcomeWav: cleanResponse,
+          aiResponseWelcomeWav: combinedResponse,  // 통합된 응답 반환
           choice: false,
-          recommendedTopics: recommendedTopics // 추천된 토픽 포함
+          recommendedTopics: recommendedTopics
         };
       } catch (error) {
         // ❌ 에러 처리
