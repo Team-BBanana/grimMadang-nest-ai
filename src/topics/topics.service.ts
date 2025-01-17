@@ -29,6 +29,9 @@ export class TopicsService {
   // 🎨 주제 그룹 저장을 위한 private 변수
   private dynamicTopicGroups: Record<string, string[]> = {};
 
+  // 🔄 메타데이터 생성 상태 추적을 위한 맵
+  private metadataGenerationMap = new Map<string, Promise<void>>();
+
   private readonly DEFAULT_GROUP = {
     '기본': ['사과', '바나나', '포도']
   };
@@ -255,9 +258,15 @@ export class TopicsService {
     
     // 메타데이터가 없는 경우 생성
     if (!existingMetadata) {
-      // 메타데이터 생성 프로세스를 비동기로 실행
-      this.generateAndSaveMetadata(selectedTopic, sessionId).catch(error => {
+      // 메타데이터 생성 프로세스를 추적
+      const generationPromise = this.generateAndSaveMetadata(selectedTopic, sessionId);
+      this.metadataGenerationMap.set(`${sessionId}-${selectedTopic}`, generationPromise);
+
+      // 에러 처리 및 완료 후 맵에서 제거
+      generationPromise.catch(error => {
         this.logger.error('메타데이터 생성 중 오류 발생:', error);
+      }).finally(() => {
+        this.metadataGenerationMap.delete(`${sessionId}-${selectedTopic}`);
       });
 
       const metadata = new TopicImageMetadataResponseDto();
@@ -372,6 +381,18 @@ export class TopicsService {
     if (!selectedTopic) {
       this.logger.error('선택된 주제가 없습니다');
       throw new Error('선택된 주제가 없습니다');
+    }
+
+    // 진행 중인 메타데이터 생성이 있는지 확인
+    const pendingGeneration = this.metadataGenerationMap.get(`${sessionId}-${selectedTopic}`);
+    if (pendingGeneration) {
+      this.logger.debug('메타데이터 생성 완료 대기 중...');
+      try {
+        await pendingGeneration;
+      } catch (error) {
+        this.logger.error('메타데이터 생성 실패:', error);
+        throw new Error('메타데이터 생성에 실패했습니다');
+      }
     }
 
     // 저장된 메타데이터와 가이드라인 조회
@@ -911,7 +932,7 @@ export class TopicsService {
       const response = await this.openAIService.generateText(guidelinePrompt);
       
       // 마크다운 코드 블록 제거
-      const cleanedResponse = response.replace(/```(?:json)?\n|\n```/g, '').trim();
+      const cleanedResponse = response.replace(/```json\n|\n```/g, '').trim();
       
       // JSON 파싱 시도
       try {
