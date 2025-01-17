@@ -1016,63 +1016,78 @@ export class TopicsService {
  private async generateTopicImage2(topic: string): Promise<string> {
    this.logger.debug("생성 할 이미지의 토픽 : " + topic);
 
-   // 1단계: 주제 상세 설명 생성
-   const detailPrompt = `
-     당신은 이미지 생성을 위한 상세 설명을 작성하는 전문가입니다.
-     ${topic}에 대한 상세한 설명을 작성해주세요.
-     설명에는 다음 내용이 포함되어야 합니다:
-     - 주제의 기본적인 형태와 특징
-     - 주요 시각적 요소
-     - 색상과 질감
-     - 전체적인 분위기
-     설명은 구체적이고 명확해야 하며, 시각화하기 쉽도록 작성해주세요.
-   `;
-   const detailedDescription = await this.openAIService.generateText(detailPrompt);
-   this.logger.debug("생성된 상세 설명:", detailedDescription);
+  //  // 1단계: 주제 상세 설명 생성
+  //  const detailPrompt = `
+  //    당신은 이미지 생성을 위한 상세 설명을 작성하는 전문가입니다.
+  //    ${topic}에 대한 상세한 설명을 작성해주세요.
+  //    설명에는 다음 내용이 포함되어야 합니다:
+  //    - 주제의 기본적인 형태와 특징
+  //    - 주요 시각적 요소
+  //    - 색상과 질감
+  //    - 전체적인 분위기
+  //    설명은 구체적이고 명확해야 하며, 시각화하기 쉽도록 작성해주세요.
+  //  `;
+  //  const detailedDescription = await this.openAIService.generateText(detailPrompt);
+  //  this.logger.debug("생성된 상세 설명:", detailedDescription);
 
-   // 2단계: 3단계 프롬프트 구조화
-   const structurePrompt = `
-     아래 상세 설명을 3단계 프롬프트 구조로 변환해주세요:
-     ${detailedDescription}
+  //  // 2단계: 3단계 프롬프트 구조화
+  //  const structurePrompt = `
+  //    아래 상세 설명을 3단계 프롬프트 구조로 변환해주세요:
+  //    ${detailedDescription}
 
-     1) 기본 프롬프트 - 핵심 주제와 의도
-     2) 이미지 스타일 - 시각적 스타일, 기법, 톤
-     3) 상세 설명 - 구체적인 요소와 제한사항
+  //    1) 기본 프롬프트 - 핵심 주제와 의도
+  //    2) 이미지 스타일 - 시각적 스타일, 기법, 톤
+  //    3) 상세 설명 - 구체적인 요소와 제한사항
 
-     응답은 각 단계별로 명확하게 구분하여 작성해주세요.
-   `;
-   const structuredPrompt = await this.openAIService.generateText(structurePrompt);
-   this.logger.debug("구조화된 프롬프트:", structuredPrompt);
+  //    응답은 각 단계별로 명확하게 구분하여 작성해주세요.
+  //  `;
+  //  const structuredPrompt = await this.openAIService.generateText(structurePrompt);
+  //  this.logger.debug("구조화된 프롬프트:", structuredPrompt);
 
-   // 3단계: 최종 이미지 생성
+  //  // 3단계: 최종 이미지 생성
+  //  const finalPrompt = `
+  //    ${structuredPrompt}
+
+  //    절대적 제한사항:
+  //    0. 따라 그릴 수 있게 매우 심플하고 간단하게 그려줘
+  //    1. 구도:
+  //       - ${topic} 하나만 정중앙에 배치
+  //       - 여백 최소화 (프레임을 꽉 채우게)
+  //       - 정면 또는 3/4 각도에서 보기
+
+  //    2. 스타일:
+  //       - 매우 두꺼운 검은색 외곽선 (5-7px)
+  //       - 단일 색상으로 채색 (그라데이션 없음)
+  //       - 밝고 선명한 원색 사용
+  //       - 2D 일러스트레이션 스타일
+
+  //    3. 배경 및 효과:
+  //       - 순수한 흰색 배경 (#FFFFFF)만 사용
+  //       - 그림자, 반사, 질감 효과 절대 금지
+  //       - 장식이나 추가 요소 절대 금지
+  //       - 배경 패턴이나 그라데이션 절대 금지
+
+  //    4. 표현 제한:
+  //       - 복잡한 디테일 절대 금지
+  //       - 사실적 표현 절대 금지
+  //       - 3D 효과 절대 금지
+  //       - 질감이나 패턴 절대 금지
+  //  `;
+
    const finalPrompt = `
-     ${structuredPrompt}
-
-     절대적 제한사항:
-     0. 따라 그릴 수 있게 매우 심플하고 간단하게 그려줘
-     1. 구도:
-        - ${topic} 하나만 정중앙에 배치
-        - 여백 최소화 (프레임을 꽉 채우게)
-        - 정면 또는 3/4 각도에서 보기
-
-     2. 스타일:
-        - 매우 두꺼운 검은색 외곽선 (5-7px)
-        - 단일 색상으로 채색 (그라데이션 없음)
-        - 밝고 선명한 원색 사용
-        - 2D 일러스트레이션 스타일
-
-     3. 배경 및 효과:
-        - 순수한 흰색 배경 (#FFFFFF)만 사용
-        - 그림자, 반사, 질감 효과 절대 금지
-        - 장식이나 추가 요소 절대 금지
-        - 배경 패턴이나 그라데이션 절대 금지
-
-     4. 표현 제한:
-        - 복잡한 디테일 절대 금지
-        - 사실적 표현 절대 금지
-        - 3D 효과 절대 금지
-        - 질감이나 패턴 절대 금지
-   `;
+"A minimal, cartoon-style ${topic} with bright, solid color fill on a plain white background, with clean outlines. 
+No other objects, no text, just only one single ${topic}, placed exactly at the center of the image. 
+Make it easy to draw and avoid any background details."
+    `;
+  
+  //  const finalPrompt = `
+  //     A simple and clean illustration of a ${topic}.  
+  //     Designed to be easy to draw.  
+  //     The ${topic} should be isolated with no background.  
+  //     It should have a slightly curved shape.  
+  //     Use smooth gradients with vibrant yellow and orange tones.  
+  //     Keep the design minimalist with no additional elements.
+  //   `;
 
    const imageUrl = await this.openAIService.generateImage(finalPrompt);
    this.logger.debug("최종 이미지 생성됨:", imageUrl);

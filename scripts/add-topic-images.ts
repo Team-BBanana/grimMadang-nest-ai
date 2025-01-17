@@ -10,8 +10,36 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/grimMa
 // 추가할 토픽 이미지 데이터
 const topicImages = [
   {
-    topic: '배',
-    imageUrl: 'https://grimmadang.s3.ap-northeast-2.amazonaws.com/%EB%B0%B0+%ED%85%8C%EC%8A%A4%ED%8A%B8/%EB%B0%B0.webp',
+    topic: '해바라기',
+    imageUrl: 'https://grimmadang.s3.ap-northeast-2.amazonaws.com/demonstrating/flower/%ED%95%B4%EB%B0%94%EB%9D%BC%EA%B8%B0.jpg',
+  },
+  {
+    topic: '튤립',
+    imageUrl: 'https://grimmadang.s3.ap-northeast-2.amazonaws.com/demonstrating/flower/%ED%8A%A4%EB%A6%BD.jpg',
+  },
+  {
+    topic: '카네이션',
+    imageUrl: 'https://grimmadang.s3.ap-northeast-2.amazonaws.com/demonstrating/flower/%EC%B9%B4%EB%84%A4%EC%9D%B4%EC%85%98.jpg',
+  },
+  {
+    topic: '장미',
+    imageUrl: 'https://grimmadang.s3.ap-northeast-2.amazonaws.com/demonstrating/flower/%EC%9E%A5%EB%AF%B8.jpg',
+  },
+  {
+    topic: '은방울꽃',
+    imageUrl: 'https://grimmadang.s3.ap-northeast-2.amazonaws.com/demonstrating/flower/%EC%9D%80%EB%B0%A9%EC%9A%B8%EA%BD%83.jpg',
+  },
+  {
+    topic: '벚꽃',
+    imageUrl: 'https://grimmadang.s3.ap-northeast-2.amazonaws.com/demonstrating/flower/%EB%B2%9A%EA%BD%83.jpg',
+  },
+  {
+    topic: '동백꽃',
+    imageUrl: 'https://grimmadang.s3.ap-northeast-2.amazonaws.com/demonstrating/flower/%EB%8F%99%EB%B0%B1%EA%BD%83.jpeg',
+  },
+  {
+    topic: '금잔화',
+    imageUrl: 'https://grimmadang.s3.ap-northeast-2.amazonaws.com/demonstrating/flower/%EA%B8%88%EC%9E%94%ED%99%94.jpg',
   }
 ];
 
