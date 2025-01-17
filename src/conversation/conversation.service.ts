@@ -174,9 +174,10 @@ export class ConversationService {
       // 💬 이전 대화 내역 가져오기
       const previousConversations = await this.getPreviousConversations(welcomeFlowDto.sessionId);
 
-      // 🎨 DB에서 사용 가능한 토픽 목록 조회
+      // 🎨 DB에서 사용 가능한 토픽 목록 조회 및 랜덤 셔플
       const availableTopics = await this.topicImageModel.find().distinct('topic');
-      this.logger.debug('Available topics:', availableTopics);
+      const shuffledTopics = availableTopics.sort(() => Math.random() - 0.5);
+      this.logger.debug('Available topics:', shuffledTopics);
 
       // 📝 시스템 프롬프트 생성
       const systemPrompt = `
@@ -203,6 +204,8 @@ export class ConversationService {
         1. 추천하는 토픽은 반드시 제공된 availableTopics 목록에서만 선택하세요.
         2. 토픽은 정확히 3개를 추천해야 합니다.
         3. 응답에는 반드시 환영 인사와 토픽 추천이 모두 포함되어야 합니다.
+        4. 매번 다른 토픽을 추천하도록 노력하세요.
+        5. 제공된 토픽 목록의 앞쪽에 있는 것을 우선적으로 선택하세요.
       `;
 
       // 📝 유저 프롬프트 생성
@@ -212,10 +215,12 @@ export class ConversationService {
         사용자 정보:
         - 이름: ${welcomeFlowDto.name}
         
-        사용 가능한 토픽 목록:
-        ${JSON.stringify(availableTopics)}
+        사용 가능한 토픽 목록 (앞쪽에 있는 토픽을 우선적으로 선택해주세요):
+        ${JSON.stringify(shuffledTopics)}
 
         위 정보를 바탕으로 ${welcomeFlowDto.name}님께 환영 인사를 하고, 그림 그리기에 적합한 토픽 3개를 추천해주세요.
+        토픽 추천은 반드시 제공된 availableTopics 목록에서만 선택해주세요.
+        가능한 목록의 앞쪽에 있는 토픽을 선택해주세요.
       `;
   
       this.logger.debug('Generated system prompt:', systemPrompt);

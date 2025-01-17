@@ -317,7 +317,7 @@ export class TopicsService {
   private async generateAndSaveMetadata(selectedTopic: string, sessionId: string): Promise<void> {
     try {
       // 이미지 생성 및 메타데이터 저장
-      const imageUrl = await this.generateTopicImage(selectedTopic);
+      const imageUrl = await this.generateTopicImage2(selectedTopic);
       const savedMetadata = await this.saveTopicMetadata(selectedTopic, imageUrl);
 
     } catch (error) {
@@ -496,9 +496,10 @@ export class TopicsService {
       주의사항:
       1. 빈 배열을 반환하지 마세요.
       2. 반드시 3개의 토픽을 추천해주세요.
-      3. 적절한 토픽을 찾을 수 없다면, 가능한 토픽 목록에서 무작위로 3개를 선택하거나
-      4. 그것도 없다면, 사용자의 니즈로 새롭게 토픽을 생성해서 추천해주세요.
+      3. 적절한 토픽을 찾을 수 없다면, 가능한 토픽 목록에서 무작위로 3개를 선택해주세요.
       `;
+      // 가능한 토픽 목록에서 무작위로 3개를 선택하거나
+      // 4. 그것도 없다면, 사용자의 니즈로 새롭게 토픽을 생성해서 추천해주세요.
 
       const recommendationResponse = await this.openAIService.generateAnalysis(prompt);
       let selectedTopics: string[];
@@ -965,6 +966,78 @@ export class TopicsService {
     // S3 업로드
     const key = `topics/${topic}/${Date.now()}.png`;
     return await this.s3Service.uploadImageFromUrl(imageUrl, key);
+  }
+
+  /**
+   * 🎨 주제 이미지 생성
+   */ 
+ private async generateTopicImage2(topic: string): Promise<string> {
+   this.logger.debug("생성 할 이미지의 토픽 : " + topic);
+
+   // 1단계: 주제 상세 설명 생성
+   const detailPrompt = `
+     당신은 이미지 생성을 위한 상세 설명을 작성하는 전문가입니다.
+     ${topic}에 대한 상세한 설명을 작성해주세요.
+     설명에는 다음 내용이 포함되어야 합니다:
+     - 주제의 기본적인 형태와 특징
+     - 주요 시각적 요소
+     - 색상과 질감
+     - 전체적인 분위기
+     설명은 구체적이고 명확해야 하며, 시각화하기 쉽도록 작성해주세요.
+   `;
+   const detailedDescription = await this.openAIService.generateText(detailPrompt);
+   this.logger.debug("생성된 상세 설명:", detailedDescription);
+
+   // 2단계: 3단계 프롬프트 구조화
+   const structurePrompt = `
+     아래 상세 설명을 3단계 프롬프트 구조로 변환해주세요:
+     ${detailedDescription}
+
+     1) 기본 프롬프트 - 핵심 주제와 의도
+     2) 이미지 스타일 - 시각적 스타일, 기법, 톤
+     3) 상세 설명 - 구체적인 요소와 제한사항
+
+     응답은 각 단계별로 명확하게 구분하여 작성해주세요.
+   `;
+   const structuredPrompt = await this.openAIService.generateText(structurePrompt);
+   this.logger.debug("구조화된 프롬프트:", structuredPrompt);
+
+   // 3단계: 최종 이미지 생성
+   const finalPrompt = `
+     ${structuredPrompt}
+
+     절대적 제한사항:
+     0. 따라 그릴 수 있게 매우 심플하고 간단하게 그려줘
+     1. 구도:
+        - ${topic} 하나만 정중앙에 배치
+        - 여백 최소화 (프레임을 꽉 채우게)
+        - 정면 또는 3/4 각도에서 보기
+
+     2. 스타일:
+        - 매우 두꺼운 검은색 외곽선 (5-7px)
+        - 단일 색상으로 채색 (그라데이션 없음)
+        - 밝고 선명한 원색 사용
+        - 2D 일러스트레이션 스타일
+
+     3. 배경 및 효과:
+        - 순수한 흰색 배경 (#FFFFFF)만 사용
+        - 그림자, 반사, 질감 효과 절대 금지
+        - 장식이나 추가 요소 절대 금지
+        - 배경 패턴이나 그라데이션 절대 금지
+
+     4. 표현 제한:
+        - 복잡한 디테일 절대 금지
+        - 사실적 표현 절대 금지
+        - 3D 효과 절대 금지
+        - 질감이나 패턴 절대 금지
+   `;
+
+   const imageUrl = await this.openAIService.generateImage(finalPrompt);
+   this.logger.debug("최종 이미지 생성됨:", imageUrl);
+
+   // S3 업로드
+   const key = `topics/${topic}/${Date.now()}.png`;
+   return await this.s3Service.uploadImageFromUrl(imageUrl, key);
   }
 
   /**
