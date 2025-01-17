@@ -61,7 +61,9 @@ export class DrawingsService {
       const evaluation = await this.evaluateDrawing(
         userImageUrl,
         drawingGuide.imageUrl,
-        currentStep
+        currentStep,
+        sessionId,
+        topic
       );
 
       try {
@@ -139,7 +141,9 @@ export class DrawingsService {
   private async evaluateDrawing(
     userImageUrl: string,
     guideImageUrl: string,
-    currentStep: number
+    currentStep: number,
+    sessionId: string,
+    topic: string
   ): Promise<{ score: number; feedback: string }> {
     // URL 인코딩 처리
     const encodedGuideImageUrl = encodeURI(guideImageUrl);
@@ -150,10 +154,13 @@ export class DrawingsService {
 
     // 현재 단계의 가이드라인 조회
     const drawingGuide = await this.drawingGuideModel.findOne({
+      sessionId,
+      topic,
       'steps.step': currentStep
     }).exec();
 
     if (!drawingGuide) {
+      this.logger.error('가이드라인을 찾을 수 없습니다', { sessionId, topic, currentStep });
       throw new Error(`단계 ${currentStep}에 대한 가이드라인을 찾을 수 없습니다`);
     }
 
