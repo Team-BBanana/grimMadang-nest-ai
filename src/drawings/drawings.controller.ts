@@ -25,7 +25,7 @@ export class DrawingsController {
   })
   async submitDrawing(@Body() request: SubmitDrawingRequestDto): Promise<SubmitDrawingResponseDto> {
     this.logger.debug(`그림 제출 요청 - 세션: ${request.sessionId}, 주제: ${request.topic}, 단계: ${request.currentStep}`);
-    
+    this.logger.debug('imageUrl:', request.imageUrl);
     const evaluation = await this.drawingsService.submitDrawing(
       request.sessionId,
       request.topic,
