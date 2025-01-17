@@ -62,8 +62,7 @@ export class DrawingsService {
         userImageUrl,
         drawingGuide.imageUrl,
         currentStep,
-        sessionId,
-        topic
+        drawingGuide
       );
 
       try {
@@ -142,8 +141,7 @@ export class DrawingsService {
     userImageUrl: string,
     guideImageUrl: string,
     currentStep: number,
-    sessionId: string,
-    topic: string
+    drawingGuide: DrawingGuideDocument
   ): Promise<{ score: number; feedback: string }> {
     // URL 인코딩 처리
     const encodedGuideImageUrl = encodeURI(guideImageUrl);
@@ -152,20 +150,14 @@ export class DrawingsService {
     this.logger.debug(`원본 가이드 이미지 URL: ${guideImageUrl}`);
     this.logger.debug(`인코딩된 가이드 이미지 URL: ${encodedGuideImageUrl}`);
 
-    // 현재 단계의 가이드라인 조회
-    const drawingGuide = await this.drawingGuideModel.findOne({
-      sessionId,
-      topic,
-      'steps.step': currentStep
-    }).exec();
-
-    if (!drawingGuide) {
-      this.logger.error('가이드라인을 찾을 수 없습니다', { sessionId, topic, currentStep });
+    // 현재 단계의 가이드 정보 찾기
+    const currentStepGuide = drawingGuide.steps[currentStep - 1];
+    
+    if (!currentStepGuide) {
+      this.logger.error('현재 단계 가이드를 찾을 수 없습니다', { currentStep, totalSteps: drawingGuide.steps.length });
       throw new Error(`단계 ${currentStep}에 대한 가이드라인을 찾을 수 없습니다`);
     }
 
-    const currentStepGuide = drawingGuide.steps.find(s => s.step === currentStep);
-    
     const systemPrompt = `
       당신은 노인 대상 심리치료사입니다. 
       그림 평가시 다음 규칙을 반드시 따라주세요:
@@ -217,11 +209,6 @@ export class DrawingsService {
       
       위 JSON 형식으로 점수와 피드백을 제공해주세요.
     `;
-    // 프롬프트 제외한 내용
-    // * 중요: 노인 사용자의 그림이므로 완벽함을 요구하지 말고, 
-    // 시도와 노력을 높이 평가해주세요.
-
-    
 
     return await this.openAIService.analyzeImagesWithVision(
       encodedUserImageUrl,
