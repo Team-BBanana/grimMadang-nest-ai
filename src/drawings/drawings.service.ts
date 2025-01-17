@@ -143,7 +143,7 @@ export class DrawingsService {
   ): Promise<{ score: number; feedback: string }> {
     // 현재 단계의 가이드라인 조회
     const drawingGuide = await this.drawingGuideModel.findOne({
-      'steps.step': currentStep - 1
+      'steps.step': currentStep
     }).exec();
 
     if (!drawingGuide) {
