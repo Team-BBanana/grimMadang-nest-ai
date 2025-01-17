@@ -141,6 +141,13 @@ export class DrawingsService {
     guideImageUrl: string,
     currentStep: number
   ): Promise<{ score: number; feedback: string }> {
+    // URL 인코딩 처리
+    const encodedGuideImageUrl = encodeURI(guideImageUrl);
+    const encodedUserImageUrl = encodeURI(userImageUrl);
+    
+    this.logger.debug(`원본 가이드 이미지 URL: ${guideImageUrl}`);
+    this.logger.debug(`인코딩된 가이드 이미지 URL: ${encodedGuideImageUrl}`);
+
     // 현재 단계의 가이드라인 조회
     const drawingGuide = await this.drawingGuideModel.findOne({
       'steps.step': currentStep
@@ -207,9 +214,11 @@ export class DrawingsService {
     // * 중요: 노인 사용자의 그림이므로 완벽함을 요구하지 말고, 
     // 시도와 노력을 높이 평가해주세요.
 
+    
+
     return await this.openAIService.analyzeImagesWithVision(
-      userImageUrl,
-      guideImageUrl,
+      encodedUserImageUrl,
+      encodedGuideImageUrl,
       currentStep,
       systemPrompt,
       userPrompt
