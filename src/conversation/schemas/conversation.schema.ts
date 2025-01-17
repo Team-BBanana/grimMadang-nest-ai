@@ -17,11 +17,11 @@ export class Conversation {
   name: string;
 
   // 💭 사용자가 입력한 텍스트 - 필수값
-  @Prop({ required: true })
+  @Prop({ required: false })
   userText: string;
 
   // 🤖 AI가 생성한 응답 텍스트 - 필수값
-  @Prop({ required: true })
+  @Prop({ required: false })
   aiResponse: string;
 
   // 👋 첫 방문 여부 표시 - 기본값 false로 설정
